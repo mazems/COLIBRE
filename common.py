@@ -271,12 +271,31 @@ def read_group_data_eagle(model_dir, snap_file, fields, subvolumes):
     return list(data.values())
 
 def read_group_data_colibre(model_dir, snap_file, fields):
-    """Read the galaxies.hdf5 file for the given model/file_*subvolume"""
+    """Read the galaxies.hdf5 file for the given model/file_*subvolume (COLIBRE)"""
 
     data = collections.OrderedDict()
-    fname = os.path.join(model_dir, 'SOAP', 'halo_properties_' + snap_file + '.hdf5')
-    print('Reading subhalo data from %s', fname)
-    logger.info('Reading subhalo data from %s', fname)
+
+    # build both possible candidate filenames (SOAP and SOAP-HBT)
+    fname_soap = os.path.join(model_dir, 'SOAP', 'halo_properties_' + snap_file + '.hdf5')
+    fname_soap_hbt = os.path.join(model_dir, 'SOAP-HBT', 'halo_properties_' + snap_file + '.hdf5')
+
+    # prefer SOAP if present, otherwise SOAP-HBT; else raise a clear error
+    if os.path.exists(fname_soap):
+        fname = fname_soap
+    elif os.path.exists(fname_soap_hbt):
+        fname = fname_soap_hbt
+    else:
+        raise FileNotFoundError(
+            f"Could not find halo_properties file for snapshot {snap_file}.\n"
+            f"Attempted:\n  {fname_soap}\n  {fname_soap_hbt}\n"
+            "Please check model_dir and filesystem mounts / permissions."
+        )
+
+    # Informative printing / logging
+    print(f"Reading subhalo data from {fname}")
+    logger.info("Reading subhalo data from %s", fname)
+
+    # open and read groups
     with h5py.File(fname, 'r') as f:
         for gname, dsnames in fields.items():
             group = f[gname]
@@ -318,7 +337,7 @@ def read_particle_data_colibre(model_dir, snap_file, fields):
     """Read the particles hdf5 file for the given model/file_*subvolume"""
 
     data = collections.OrderedDict()
-    fname = os.path.join(model_dir, 'SOAP', 'colibre_with_SOAP_membership_' + snap_file + '.hdf5')
+    fname = os.path.join(model_dir, 'SOAP-HBT', 'colibre_with_SOAP_membership_' + snap_file + '.hdf5')
     logger.info('Reading particle data from %s', fname)
     with h5py.File(fname, 'r') as f:
         for gname, dsnames in fields.items():
@@ -339,7 +358,7 @@ def read_particle_membership_colibre(model_dir, snap_file, fields):
 
     data = collections.OrderedDict()
     for idx, subv in enumerate(subvolumes):
-        fname = os.path.join(model_dir, 'SOAP/SOAP_uncompressed/membership_'+ snap_file + '.hdf5')
+        fname = os.path.join(model_dir, 'SOAP-HBT/SOAP_uncompressed/membership_'+ snap_file + '.hdf5')
         logger.info('Reading particle data from %s', fname)
         with h5py.File(fname, 'r') as f:
             for gname, dsnames in fields.items():
