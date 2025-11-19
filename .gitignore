@@ -1,0 +1,14 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.vscode/
+.DS_Store
+ProcessedData/
+plots/
+run_err.log
+run_error.log
+swiftsimio/
+build/
+dist/
