@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import common
+import pandas as pd
 # import cmasher as cmr
 #import utilities_statistics as us
 
@@ -192,6 +193,9 @@ if ngals > 0:
     log_r = np.log10(r50_plot[mask])
     ucmgs = log_m - 3/2 * log_r - logsigma_ref
     print(f"Number of UCMGs: {np.sum(ucmgs > 0)}")
+    ucmg_ids = sgn_in[ucmgs > 0]        # assuming sgn_in holds the subhalo IDs
+    print("Saving", len(ucmg_ids), "UCMG IDs to CSV")
+    pd.DataFrame({"subhalo_id": ucmg_ids}).to_csv("ucmg_ids.csv", index=False)
 
     mask_proj = (mt_proj > 0) & (r50_proj > 0)
     if not np.any(mask_proj):
