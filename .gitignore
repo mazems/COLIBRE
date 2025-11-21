@@ -12,3 +12,4 @@ run_error.log
 swiftsimio/
 build/
 dist/
+swiftsimio_local_backup/
