@@ -13,3 +13,4 @@ swiftsimio/
 build/
 dist/
 swiftsimio_local_backup/
+.git.backup/
