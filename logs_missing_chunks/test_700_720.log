@@ -1,0 +1,1 @@
+./run_python.sh: line 19: 2198806 Killed                  python3 compute_relicness_quantities.py "$1" "$2"
