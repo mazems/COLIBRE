@@ -14,3 +14,4 @@ build/
 dist/
 swiftsimio_local_backup/
 .git.backup/
+ucmg_particle_index_mapping.npz
