@@ -1,0 +1,38 @@
+Will process 30 subhalos (test=False)
+Mapping requested subhalos -> SOAP rows (chunked scan)...
+Found SOAP rows for 30 / 30 requested subhalos
+Reading SOAP StellarMass & HalfMassRadiusStars for requested rows (applying Mu/Lu conversions)...
+Summing PartType4/Masses via mapping NPZ (particle-level current stellar mass -> Msun)...
+Analysing subhalo 122526
+Analysing subhalo 11618213
+Analysing subhalo 37996
+Analysing subhalo 2279089
+Analysing subhalo 584622
+Analysing subhalo 2283615
+Analysing subhalo 124329
+Analysing subhalo 225236
+Analysing subhalo 38252
+Analysing subhalo 1888663
+Analysing subhalo 602395
+Analysing subhalo 2356795
+Analysing subhalo 41184
+Analysing subhalo 41593
+Analysing subhalo 225712
+Analysing subhalo 285570
+Analysing subhalo 605908
+Analysing subhalo 1197986
+Analysing subhalo 2313830
+Analysing subhalo 2348093
+Analysing subhalo 3700629
+Analysing subhalo 606926
+Analysing subhalo 1239079
+Analysing subhalo 244377
+Analysing subhalo 108215
+Analysing subhalo 132183
+Analysing subhalo 2088331
+Analysing subhalo 2870
+Analysing subhalo 241741
+Analysing subhalo 516990
+halos:   0%|                                                                 | 0/30 [00:00<?, ?it/s]Flushed 30 rows to outfiles/relic_chunk_025.csv
+halos: 100%|███████████████████████████████████████████████████████| 30/30 [00:00<00:00, 485.49it/s]
+Done. Wrote 30 rows to outfiles/relic_chunk_025.csv

@@ -1,0 +1,11 @@
+Loaded mapping keys: 2175
+Reading SOAP (STRICT fields ExclusiveSphere/50kpc/StellarMass and HalfMassRadiusStars)...
+[SOAP] no mass units attribute found; assuming values are in Msun
+[SOAP] no radius units attribute found; assuming values are in kpc
+Summing particle-level current masses using NPZ mapping and PartType4/Masses (strict)...
+[SNAP] no particle mass units attr; assuming values are in Msun
+Diagnostic (strict) for subhalo: 6041
+  particle_sum (Msun): 7.390999860268494
+  SOAP ExclusiveSphere/50kpc/StellarMass (Msun): 7.25
+  SOAP ExclusiveSphere/50kpc/HalfMassRadiusStars (kpc): 0.00238800048828125
+  logsigma (SOAP): 4.793286389682842

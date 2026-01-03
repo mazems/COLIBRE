@@ -1,0 +1,47 @@
+=== sbatch_relic_wrapper.sh START ===
+Sun Dec  7 11:45:20 PM UTC 2025
+Host: hyades01   User: mzemsch
+CWD: /home/mzemsch/COLIBRE-analysis
+nproc: 48
+free -h:
+               total        used        free      shared  buff/cache   available
+Mem:           376Gi       1.8Gi        49Gi       4.0Mi       325Gi       372Gi
+Swap:          8.0Gi        87Mi       7.9Gi
+ulimit -a:
+real-time non-blocking time  (microseconds, -R) unlimited
+core file size              (blocks, -c) 0
+data seg size               (kbytes, -d) unlimited
+scheduling priority                 (-e) 0
+file size                   (blocks, -f) unlimited
+pending signals                     (-i) 1541106
+max locked memory           (kbytes, -l) 2046632
+max memory size             (kbytes, -m) 104857600
+open files                          (-n) 4096
+pipe size                (512 bytes, -p) 8
+POSIX message queues         (bytes, -q) 819200
+real-time priority                  (-r) 0
+stack size                  (kbytes, -s) 8192
+cpu time                   (seconds, -t) unlimited
+max user processes                  (-u) 63504
+virtual memory              (kbytes, -v) unlimited
+file locks                          (-x) unlimited
+Running compute_relicness_quantities.py 430 435
+Sun Dec  7 11:45:22 PM UTC 2025
+Starting compute_relicness_quantities.py
+CWD: /home/mzemsch/COLIBRE-analysis
+Read 2175 subhalo ids from ucmg_ids.csv
+Using subhalo_ids[430:435] -> 5 halos
+Loaded SOAP mapping with 91142867 rows.
+Opening virtual snapshot (PartType4) and preparing dataset handles...
+Using mass dataset (lazy): InitialMasses
+Prepared dataset handles in 0.02 s
+Cosmic age at z=2 = 3.2840 Gyr; universe age = 13.7976 Gyr
+Will collect particle indices for 5 requested subhalo ids
+Loading precomputed particle-index mapping from '/home/mzemsch/COLIBRE-analysis/ucmg_particle_index_mapping.npz' (FAST mode)...
+Loaded mapping for 2175 subhalos (FAST). All requested IDs present.
+Diagnostic: reporting mapping sizes for requested subhalos (first 5 shown)...
+  subhalo 20435: Nidx=3178254 sample_idx=[248405545, 248405566, 248405567, 248405568, 248405569, 248405570, 248405571, 248405574, 248405632, 248405633]
+  subhalo 95502: Nidx=21598 sample_idx=[355076555, 355152433, 355161588, 355161626, 355161637, 355161648, 355161651, 355161654, 355161660, 355161662]
+  subhalo 219248: Nidx=44246 sample_idx=[354799803, 354800591, 354800597, 354800598, 354800599, 354800600, 354800601, 354800603, 354800604, 354800605]
+  subhalo 220141: Nidx=43301 sample_idx=[350892120, 350892125, 350892126, 350892152, 350892160, 350892161, 350892163, 350892166, 350892169, 350892170]
+  subhalo 1906592: Nidx=7240 sample_idx=[352749034, 352749310, 352749313, 352749321, 352893770, 352893784, 352893809, 353159539, 353159551, 353159813]

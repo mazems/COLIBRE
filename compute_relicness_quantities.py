@@ -14,7 +14,6 @@ import time
 import traceback
 import argparse
 import gc
-from typing import List, Tuple, Dict
 
 import numpy as np
 import pandas as pd
@@ -39,8 +38,6 @@ VERBOSE = True
 
 # tune chunk size for HaloCatalogueIndex scan (smaller -> less memory, slightly slower)
 HALO_CHUNK_SIZE = 200_000
-# === CHANGED: default workers for optional multiprocessing ===
-DEFAULT_WORKERS = 1  # keep unchanged behaviour unless user requests more
 # -----------------------------------------------------
 
 def vprint(*args, **kwargs):
@@ -100,212 +97,11 @@ def compute_mass_hist_times(tform_sel, masses_sel, time_bin_gyr=TIME_BIN_GYR):
 
     return total_formed, t50, t50_span, t75, t75_span, t90, t90_span, t95, t95_span, t998, t998_span
 
-# === CHANGED ===: argparse so we can run slices and set workers
+# === CHANGED ===: argparse so we can run slices
 parser = argparse.ArgumentParser()
 parser.add_argument("nstart", type=int, nargs='?', default=None)
 parser.add_argument("nend", type=int, nargs='?', default=None)
-parser.add_argument("--workers", type=int, default=None,
-                    help=f"Number of worker processes for per-subhalo processing (default={DEFAULT_WORKERS}). Use 1 to keep current behaviour.")
 args = parser.parse_args()
-# === END CHANGED ===
-
-# === CHANGED: helper to coalesce indices into contiguous ranges ===
-def coalesce_indices(indices: np.ndarray) -> List[Tuple[int,int]]:
-    """
-    Given a 1D integer array of absolute particle indices (unsorted allowed),
-    return a list of (start, stop) inclusive ranges to read from HDF5.
-    The returned ranges are half-open for slicing: [start, stop_exclusive).
-    """
-    if indices is None or indices.size == 0:
-        return []
-    idx = np.unique(indices.astype(np.int64))
-    idx.sort()
-    # find runs where consecutive difference >1
-    diff = np.diff(idx)
-    # boundaries where diff > 1
-    breaks = np.nonzero(diff > 1)[0]
-    ranges = []
-    start = idx[0]
-    for b in breaks:
-        end = idx[b]   # inclusive
-        ranges.append((int(start), int(end + 1)))  # end exclusive
-        start = idx[b+1]
-    # final run
-    ranges.append((int(start), int(idx[-1] + 1)))
-    return ranges
-# === END CHANGED ===
-
-# === CHANGED: per-halo worker function that performs coalesced reads from HDF5 ===
-def process_single_halo(sid: int,
-                        mapping_arr: np.ndarray,
-                        snapshot_fn: str,
-                        soap_row: int | None,
-                        time_bin_gyr: float,
-                        term3_ref: str,
-                        verbose: bool) -> Dict:
-    """
-    Process one halo (sid). This function opens the snapshot HDF5 itself,
-    coalesces indices into contiguous ranges, reads each dataset only for
-    those ranges, constructs per-halo arrays and computes the same outputs
-    as before. Return a row dict (same shape as before) or None on error.
-    """
-    # DIAGNOSTIC: record start time and npart for this halo
-    t_proc_start = time.time()
-    npart = int(mapping_arr.size) if mapping_arr is not None else 0
-
-    if mapping_arr.size == 0:
-        # return zero-like entry plus diagnostics
-        return {'subhalo_id': int(sid),
-                'soap_row_index': soap_row,
-                'total_formed_mass': 0.0,
-                'proc_time': 0.0,
-                'npart': 0}
-
-    try:
-        with h5py.File(snapshot_fn, 'r') as f_loc:
-            p4_loc = f_loc['PartType4']
-
-            # pick dataset names as previously
-            for name in ('InitialMasses', 'Masses', 'masses'):
-                if name in p4_loc:
-                    masses_ds_loc = p4_loc[name]; break
-            else:
-                raise RuntimeError("No stellar mass dataset found under PartType4")
-
-            birth_sf_ds_loc = p4_loc['BirthScaleFactors'] if 'BirthScaleFactors' in p4_loc else None
-            ages_ds_loc = p4_loc['Ages'] if 'Ages' in p4_loc else None
-            elem_mass_fracs_ds_loc = p4_loc['ElementMassFractions'] if 'ElementMassFractions' in p4_loc else None
-
-            # coalesce contiguous index ranges
-            ranges = coalesce_indices(mapping_arr)
-            # preallocate lists for blocks
-            masses_blocks = []
-            birth_blocks = [] if birth_sf_ds_loc is not None else None
-            ages_blocks = [] if ages_ds_loc is not None else None
-            elem_blocks = [] if elem_mass_fracs_ds_loc is not None else None
-
-            # read blocks sequentially
-            for (start, stop_excl) in ranges:
-                # read slice once per dataset
-                masses_blocks.append(np.array(masses_ds_loc[start:stop_excl], dtype=float))
-                if birth_sf_ds_loc is not None:
-                    birth_blocks.append(np.array(birth_sf_ds_loc[start:stop_excl], dtype=float))
-                if ages_ds_loc is not None:
-                    ages_blocks.append(np.array(ages_ds_loc[start:stop_excl], dtype=float))
-                if elem_mass_fracs_ds_loc is not None:
-                    elem_blocks.append(np.array(elem_mass_fracs_ds_loc[start:stop_excl], dtype=float))
-
-            # concatenate blocks -> get arrays aligned with the concatenated block ordering
-            masses_sel = np.concatenate(masses_blocks) if masses_blocks else np.array([], dtype=float)
-            if birth_blocks is not None:
-                birth_arr = np.concatenate(birth_blocks)
-            else:
-                birth_arr = None
-            if ages_blocks is not None:
-                ages_arr = np.concatenate(ages_blocks)
-            else:
-                ages_arr = None
-            if elem_blocks is not None:
-                elem_arr = np.concatenate(elem_blocks)
-            else:
-                elem_arr = None
-
-            # BUT: mapping_arr may not correspond to simple sequential ordering inside the concatenated slice
-            # We used contiguous ranges built from mapping_arr itself, so the concatenation is in the same order
-            # as the sorted unique mapping_arr. To ensure correct particle-wise alignment use sorted mapping ordering:
-            sorted_idx = np.argsort(np.unique(mapping_arr))
-            # However, because we created ranges from np.unique(mapping_arr) and read in that sorted order,
-            # the concatenation ordering equals the sorted unique indices, so we can proceed.
-
-            # build formation times tform_sel similar to original logic
-            if birth_arr is not None:
-                a_sel = birth_arr
-                with np.errstate(divide='ignore', invalid='ignore'):
-                    z_birth_sel = (1.0 / a_sel) - 1.0
-                valid_z = np.isfinite(z_birth_sel) & (z_birth_sel >= 0.0)
-                tform_sel = np.full_like(a_sel, np.nan, dtype=float)
-                if np.any(valid_z):
-                    tform_sel[valid_z] = Planck15.age(z_birth_sel[valid_z]).to(u.Gyr).value
-                if np.any(~valid_z) and ages_arr is not None:
-                    t_now = Planck15.age(0).to(u.Gyr).value
-                    # fill where invalid with t_now - ages
-                    tform_sel[~valid_z] = t_now - ages_arr[~valid_z]
-            elif ages_arr is not None:
-                t_now = Planck15.age(0).to(u.Gyr).value
-                tform_sel = t_now - ages_arr
-            else:
-                # no time info -> return zero row
-                return {'subhalo_id': int(sid), 'soap_row_index': soap_row, 'total_formed_mass': 0.0}
-
-            # filter NaNs
-            valid_mask = np.isfinite(tform_sel)
-            if not np.all(valid_mask):
-                masses_sel = masses_sel[valid_mask]
-                tform_sel = tform_sel[valid_mask]
-                if elem_arr is not None:
-                    elem_arr = elem_arr[valid_mask]
-
-            if tform_sel.size == 0 or masses_sel.size == 0:
-                return {'subhalo_id': int(sid), 'soap_row_index': soap_row, 'total_formed_mass': 0.0}
-
-            # compute quantities (reuse compute_mass_hist_times)
-            total_formed, t50, t50_span, t75, t75_span, t90, t90_span, t95, t95_span, t998, t998_span = \
-                compute_mass_hist_times(tform_sel, masses_sel, time_bin_gyr)
-
-            tfin = t998
-            t_start_val = float(np.min(tform_sel))
-            tfin_span = tfin - t_start_val if np.isfinite(tfin) else float('nan')
-
-            if total_formed > 0:
-                f_Mz2 = float(np.sum(masses_sel[tform_sel <= Planck15.age(2.0).to(u.Gyr).value]) / total_formed)
-            else:
-                f_Mz2 = float('nan')
-
-            term2 = 0.5 / t75_span if (t75_span is not None and np.isfinite(t75_span) and t75_span > 0) else 1.0
-
-            span_map = {"tfin": tfin_span, "t90": t90_span, "t95": t95_span, "t998": t998_span}
-            span_val = span_map.get(term3_ref, tfin_span if np.isfinite(tfin_span) else 0.0)
-            term3 = (0.7 + Planck15.age(0).to(u.Gyr).value - span_val) / Planck15.age(0).to(u.Gyr).value if np.isfinite(span_val) else float('nan')
-
-            term1 = float(f_Mz2) if np.isfinite(f_Mz2) else float('nan')
-            dor = float((term1 + term2 + term3) / 3.0) if np.isfinite(term1) and np.isfinite(term2) and np.isfinite(term3) else float('nan')
-
-            element_totals = {}
-            if elem_arr is not None:
-                # elem_arr shape: (Nsel, Nelem)
-                if elem_arr.ndim == 2 and elem_arr.shape[0] == masses_sel.size:
-                    em_sel = elem_arr * masses_sel[:, None]
-                    for ie in range(em_sel.shape[1]):
-                        element_totals[f"elem_{ie}_mass"] = float(np.sum(em_sel[:, ie]))
-
-            row = {
-                'subhalo_id': int(sid),
-                'soap_row_index': soap_row,
-                'total_formed_mass': float(total_formed),
-                'stellar_mass_current': float(np.sum(masses_sel)),
-                't_start': float(t_start_val),
-                't50': float(t50), 't50_span': float(t50_span),
-                't75': float(t75), 't75_span': float(t75_span),
-                't90': float(t90), 't90_span': float(t90_span),
-                't95': float(t95), 't95_span': float(t95_span),
-                't998': float(t998), 't998_span': float(t998_span),
-                'tfin': float(tfin), 'tfin_span': float(tfin_span),
-                'f_Mz2': float(f_Mz2),
-                'term1': float(term1),
-                'term2': float(term2),
-                'term3': float(term3),
-                'DoR': float(dor)
-            }
-            row.update(element_totals)
-            # diagnostic fields returned so caller can print timings in parallel mode
-            row['proc_time'] = float(time.time() - t_proc_start)
-            row['npart'] = npart
-            return row
-    except Exception as e:
-        if verbose:
-            print(f"Error in processing halo {sid}: {e}", file=sys.stderr)
-            traceback.print_exc()
-        return {'subhalo_id': int(sid), 'soap_row_index': soap_row, 'total_formed_mass': 0.0}
 # === END CHANGED ===
 
 def main():
@@ -356,11 +152,11 @@ def main():
     else:
         vprint("SOAP catalogue file not found; output will not include soap_row_index.")
 
-    # -------------------- open virtual snapshot lazily (only for mapping load; workers re-open) --------------------
+    # -------------------- open virtual snapshot lazily --------------------
     if not os.path.exists(VIRTUAL_SNAPSHOT_FILE):
         raise SystemExit(f"Virtual snapshot not found: {VIRTUAL_SNAPSHOT_FILE}")
 
-    vprint("Opening virtual snapshot (PartType4) and preparing dataset handles (main process)...")
+    vprint("Opening virtual snapshot (PartType4) and preparing dataset handles...")
     t0 = time.time()
     f = h5py.File(VIRTUAL_SNAPSHOT_FILE, 'r')
     if 'PartType4' not in f:
@@ -368,7 +164,7 @@ def main():
         raise SystemExit("PartType4 group not found in snapshot HDF5.")
     p4 = f['PartType4']
 
-    # Determine mass dataset handle (do NOT load full array) — main process uses it only for quick checks
+    # Determine mass dataset handle (do NOT load full array)
     masses_ds = None
     for name in ('InitialMasses', 'Masses', 'masses'):
         if name in p4:
@@ -379,7 +175,7 @@ def main():
         f.close()
         raise SystemExit("No stellar mass dataset found under PartType4 (InitialMasses / Masses).")
 
-    # dataset handles for formation time info (lazy) - main process not used for per-halo heavy reads
+    # dataset handles for formation time info (lazy)
     birth_sf_ds = p4['BirthScaleFactors'] if 'BirthScaleFactors' in p4 else None
     ages_ds = p4['Ages'] if 'Ages' in p4 else None
     coords_ds = p4['Coordinates'] if 'Coordinates' in p4 else None
@@ -425,6 +221,7 @@ def main():
     # Check completeness: all requested IDs must be present
     missing_ids = [int(sid) for sid in req_arr if int(sid) not in mapping]
     if len(missing_ids) > 0:
+        # show up to first 50 missing ids for readability
         snippet = missing_ids[:50]
         raise SystemExit(
             f"Mapping loaded but missing {len(missing_ids)} requested subhalo ids for this job. "
@@ -434,68 +231,172 @@ def main():
 
     vprint(f"Loaded mapping for {len(mapping)} subhalos (FAST). All requested IDs present.")
     # === END CHANGED mapping block ===
+    # --- ADD THIS DEBUG BLOCK RIGHT AFTER mapping loaded ---
+    vprint("Diagnostic: reporting mapping sizes for requested subhalos (first 5 shown)...")
+    for j, sid in enumerate(req_arr):
+        if j >= 50:  # avoid flooding logs if many ids — adjust if desired
+            break
+        arr = mapping.get(int(sid), np.array([], dtype=np.int64))
+        if arr is None:
+            vprint(f"  subhalo {sid}: mapping key NOT present")
+        else:
+            if arr.size == 0:
+                vprint(f"  subhalo {sid}: mapping present but EMPTY")
+            else:
+                sample = arr[:min(10, arr.size)]
+                vprint(f"  subhalo {sid}: Nidx={arr.size} sample_idx={sample.tolist()}")
+    # --- END DEBUG BLOCK ---
 
-    # -------------------- per-subhalo processing (optionally parallel) --------------------
+    # -------------------- per-subhalo processing --------------------
     out_rows = []
     start_all = time.time()
-
-    # decide number of workers
-    workers = args.workers if args.workers is not None else DEFAULT_WORKERS
-    if workers is None or workers < 1:
-        workers = DEFAULT_WORKERS
-    vprint(f"Using workers={workers} for per-halo processing (0: sequential fallback).")
-
-    # Build list of tasks
-    tasks = []
     for i, sid in enumerate(subhalo_ids):
-        sid_i = int(sid)
-        mapping_arr = mapping.get(sid_i, np.array([], dtype=np.int64))
-        soap_row = subhalo_to_row.get(sid_i, None)
-        tasks.append((sid_i, mapping_arr, soap_row))
+        t0_loop = time.time()
+        sid = int(sid)
+        indices = mapping.get(sid, np.array([], dtype=int))
+        soap_row = subhalo_to_row.get(sid, None)
 
-    # Sequential fast path (default) to preserve original behavior
-    if workers == 1:
-        for i, (sid_i, mapping_arr, soap_row) in enumerate(tasks):
-            # DIAGNOSTIC start
-            vprint(f"[{i+1}/{len(subhalo_ids)}] START subhalo {sid_i} with Npart={int(mapping_arr.size)}")
-            t0_loop = time.time()
+        if indices.size == 0:
+            vprint(f"[{i+1}/{len(subhalo_ids)}] subhalo {sid}: 0 star particles -> writing zeros")
+            out_rows.append({
+                'subhalo_id': sid,
+                'soap_row_index': soap_row,
+                'total_formed_mass': 0.0
+            })
+            continue
 
-            row = process_single_halo(sid_i, mapping_arr, VIRTUAL_SNAPSHOT_FILE, soap_row,
-                                    TIME_BIN_GYR, TERM3_REF, VERBOSE)
-            out_rows.append(row)
+        # Lazy-read masses and formation-related fields for these indices only
+        try:
+            masses_sel = np.array(masses_ds[indices], dtype=float)
+        except Exception as e:
+            vprint(f"Error reading masses for subhalo {sid}: {e}")
+            continue
 
-            # DIAGNOSTIC end
-            proc_time = row.get('proc_time', time.time() - t0_loop)
-            npart = row.get('npart', int(mapping_arr.size))
-            vprint(f"[{i+1}/{len(subhalo_ids)}] END   subhalo {sid_i}: npart={npart} proc_time={proc_time:.2f}s")
+        # build formation times tform_sel (in Gyr) from BirthScaleFactors or Ages
+        if birth_sf_ds is not None:
+            a_sel = np.array(birth_sf_ds[indices], dtype=float)
+            with np.errstate(divide='ignore', invalid='ignore'):
+                z_birth_sel = (1.0 / a_sel) - 1.0
+            valid_z = np.isfinite(z_birth_sel) & (z_birth_sel >= 0.0)
+            tform_sel = np.full_like(a_sel, np.nan, dtype=float)
+            if np.any(valid_z):
+                tform_sel[valid_z] = Planck15.age(z_birth_sel[valid_z]).to(u.Gyr).value
+            # fallback to ages dataset for invalid elements if available
+            if np.any(~valid_z) and ages_ds is not None:
+                ages_sel = np.array(ages_ds[indices][~valid_z], dtype=float)
+                t_now = Planck15.age(0).to(u.Gyr).value
+                tform_sel[~valid_z] = t_now - ages_sel
+        elif ages_ds is not None:
+            ages_sel = np.array(ages_ds[indices], dtype=float)
+            t_now = Planck15.age(0).to(u.Gyr).value
+            tform_sel = t_now - ages_sel
+        else:
+            vprint(f"subhalo {sid}: no BirthScaleFactors nor Ages available for formation times; skipping")
+            continue
 
-            t_loop = time.time() - t0_loop
-            vprint(f"[{i+1}/{len(subhalo_ids)}] subhalo {sid_i} done in {t_loop:.3f}s; total_formed={row.get('total_formed_mass',0.0):.3e}")
-    else:
-        # parallel execution using ProcessPoolExecutor — each process re-opens the HDF5 file
-        from concurrent.futures import ProcessPoolExecutor, as_completed
-        futures = {}
-        with ProcessPoolExecutor(max_workers=workers) as exc:
-            # submit
-            for i, (sid_i, mapping_arr, soap_row) in enumerate(tasks):
-                vprint(f"Submitting worker task [{i+1}/{len(tasks)}] subhalo {sid_i} (npart={int(mapping_arr.size)})")
-                futures[exc.submit(process_single_halo, sid_i, mapping_arr, VIRTUAL_SNAPSHOT_FILE, soap_row,
-                                TIME_BIN_GYR, TERM3_REF, VERBOSE)] = i
+        # filter out NaN formation times
+        valid_mask = np.isfinite(tform_sel)
+        if not np.all(valid_mask):
+            masses_sel = masses_sel[valid_mask]
+            tform_sel = tform_sel[valid_mask]
 
-            # collect results
-            for f in as_completed(futures):
-                idx = futures[f]
-                try:
-                    row = f.result()
-                except Exception as e:
-                    vprint(f"Worker failed for task idx {idx}: {e}")
-                    row = {'subhalo_id': int(subhalo_ids[idx]), 'soap_row_index': None, 'total_formed_mass': 0.0, 'proc_time': 0.0, 'npart': 0}
+        if tform_sel.size == 0 or masses_sel.size == 0:
+            vprint(f"[{i+1}/{len(subhalo_ids)}] subhalo {sid}: no valid particle times after filtering")
+            out_rows.append({
+                'subhalo_id': sid,
+                'soap_row_index': soap_row,
+                'total_formed_mass': 0.0
+            })
+            continue
 
-                out_rows.append(row)
-                sub_id = row.get('subhalo_id')
-                proc_time = row.get('proc_time', None)
-                npart = row.get('npart', None)
-                vprint(f"[{len(out_rows)}/{len(subhalo_ids)}] collected result for subhalo {sub_id} (npart={npart} proc_time={proc_time})")
+        # Compute SFH-derived times and totals
+        total_formed, t50, t50_span, t75, t75_span, t90, t90_span, t95, t95_span, t998, t998_span = \
+            compute_mass_hist_times(tform_sel, masses_sel, TIME_BIN_GYR)
+
+        tfin = t998
+        # correct tfin_span relative to t_start
+        t_start_val = float(np.min(tform_sel))
+        tfin_span = tfin - t_start_val if np.isfinite(tfin) else float('nan')
+
+        # f_Mz2: fraction formed before cosmic age at z=2
+        if total_formed > 0:
+            f_Mz2 = float(np.sum(masses_sel[tform_sel <= t_z2_gyr]) / total_formed)
+        else:
+            f_Mz2 = float('nan')
+
+        # term2: 0.5 / t75_span if t75_span > 0 else 1.0
+        term2 = 0.5 / t75_span if (t75_span is not None and np.isfinite(t75_span) and t75_span > 0) else 1.0
+
+        # term3: pick span reference
+        span_map = {"tfin": tfin_span, "t90": t90_span, "t95": t95_span, "t998": t998_span}
+        span_val = span_map.get(TERM3_REF, tfin_span if np.isfinite(tfin_span) else 0.0)
+        term3 = (0.7 + t_uni_gyr - span_val) / t_uni_gyr if np.isfinite(span_val) else float('nan')
+
+        term1 = float(f_Mz2) if np.isfinite(f_Mz2) else float('nan')
+        dor = float((term1 + term2 + term3) / 3.0) if np.isfinite(term1) and np.isfinite(term2) and np.isfinite(term3) else float('nan')
+
+        # element totals if ElementMassFractions present (read only per-subhalo)
+        element_totals = {}
+        if elem_mass_fracs_ds is not None:
+            try:
+                em_frac_sel = np.array(elem_mass_fracs_ds[indices], dtype=float)
+                # if shape (Nsel, Nelem)
+                if em_frac_sel.ndim == 2 and em_frac_sel.shape[0] == indices.size:
+                    # apply the same valid_mask if we filtered NaNs earlier
+                    if not np.all(valid_mask):
+                        em_frac_sel = em_frac_sel[valid_mask]
+                    em_sel = em_frac_sel * masses_sel[:, None]  # absolute element masses per particle
+                    for ie in range(em_sel.shape[1]):
+                        element_totals[f"elem_{ie}_mass"] = float(np.sum(em_sel[:, ie]))
+            except Exception as e:
+                vprint(f"Warning: failed to read ElementMassFractions for subhalo {sid}: {e}")
+
+        # prepare output row
+        row = {
+            'subhalo_id': sid,
+            'soap_row_index': soap_row,
+            'total_formed_mass': float(total_formed),
+            'stellar_mass_current': float(np.sum(masses_sel)),
+            't_start': float(t_start_val),
+            't50': float(t50), 't50_span': float(t50_span),
+            't75': float(t75), 't75_span': float(t75_span),
+            't90': float(t90), 't90_span': float(t90_span),
+            't95': float(t95), 't95_span': float(t95_span),
+            't998': float(t998), 't998_span': float(t998_span),
+            'tfin': float(tfin), 'tfin_span': float(tfin_span),
+            'f_Mz2': float(f_Mz2),
+            'term1': float(term1),
+            'term2': float(term2),
+            'term3': float(term3),
+            'DoR': float(dor)
+        }
+        row.update(element_totals)
+        out_rows.append(row)
+
+        # free large per-subhalo arrays to reduce memory peak
+        try:
+            del masses_sel
+        except NameError:
+            pass
+        try:
+            del tform_sel
+        except NameError:
+            pass
+        try:
+            del em_frac_sel
+            del em_sel
+        except NameError:
+            pass
+        try:
+            del ages_sel, a_sel, z_birth_sel
+        except NameError:
+            pass
+
+        gc.collect()
+
+        t_loop = time.time() - t0_loop
+        vprint(f"[{i+1}/{len(subhalo_ids)}] subhalo {sid} done in {t_loop:.3f}s; total_formed={total_formed:.3e}")
+
     total_time = time.time() - start_all
     vprint(f"Processed {len(out_rows)} subhalos in {total_time:.2f} s")
 

@@ -1,0 +1,3 @@
+/home/mzemsch/COLIBRE-analysis/make_stellar_map_coalesced.py:220: DeprecationWarning: Conversion of an array with ndim > 0 to a scalar is deprecated, and will error in future. Ensure you extract a single element from your array before performing this operation. (Deprecated NumPy 1.25.)
+  conv = float(mass_ds.attrs['Conversion factor to CGS (not including cosmological corrections)'])
+slurmstepd-hyades02: error: *** JOB 313747 ON hyades02 CANCELLED AT 2025-12-11T14:03:47 DUE TO TIME LIMIT ***
