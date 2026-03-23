@@ -1,0 +1,5 @@
+270 275 relicness_270_275.csv
+405 410 relicness_405_410.csv
+430 435 relicness_430_435.csv
+1505 1510 relicness_1505_1510.csv
+1905 1910 relicness_1905_1910.csv

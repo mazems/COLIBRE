@@ -1,0 +1,903 @@
+Inspecting: /mnt/su3-pro/colibre/L0200N3008/THERMAL_AGN/SOAP-HBT/colibre_with_SOAP_membership_0127.hdf5
+GROUP:   BHParticles
+DATASET: BHParticles/AGNTotalInjectedEnergies  shape= (3346175,)  dtype= float32
+  peek: [23.96875  0.      59.375    0.       0.     ]
+DATASET: BHParticles/AccretedAngularMomenta  shape= (3346175, 3)  dtype= float32
+  peek row0: [[ 4.206413e-11 -9.163159e-11  3.291234e-11]]
+DATASET: BHParticles/AccretionBoostFactors  shape= (3346175,)  dtype= float32
+  peek: [1. 1. 1. 1. 1.]
+DATASET: BHParticles/AccretionLimitedTimeSteps  shape= (3346175,)  dtype= float32
+  peek: [6.6302549e-03 5.5724983e+00 1.2894299e-04 4.3124631e+02 4.3437933e+02]
+DATASET: BHParticles/AccretionRates  shape= (3346175,)  dtype= float32
+  peek: [4.0903687e-06 4.8676156e-09 2.0909309e-04 6.2073013e-11 6.1731953e-11]
+DATASET: BHParticles/AveragedAccretionRates  shape= (3346175, 2)  dtype= float32
+  peek row0: [[1.9185245e-06 4.1127205e-06]]
+DATASET: BHParticles/Coordinates  shape= (3346175, 3)  dtype= float64
+  peek row0: [[ 29.52591793 149.57838893 104.95982393]]
+DATASET: BHParticles/CumulativeNumberOfSeeds  shape= (3346175,)  dtype= int32
+  peek: [1 1 1 1 1]
+DATASET: BHParticles/DustMasses  shape= (3346175, 6)  dtype= float32
+  peek row0: [[5.9344529e-11 2.4691360e-13 1.3278267e-13 6.5796257e-12 3.5605199e-16]]
+DATASET: BHParticles/DynamicalMasses  shape= (3346175,)  dtype= float32
+  peek: [0.00018267 0.00018117 0.00018643 0.00018393 0.00018085]
+DATASET: BHParticles/EddingtonFractions  shape= (3346175,)  dtype= float32
+  peek: [6.1631203e-05 7.4738637e-08 3.0670166e-03 9.5315045e-10 9.4769348e-10]
+DATASET: BHParticles/ElementMasses  shape= (3346175, 12)  dtype= float32
+  peek row0: [[1.3804436e-04 4.4703484e-05 2.8638169e-08 1.2805685e-09 6.4319465e-09]]
+DATASET: BHParticles/ElementMassesDiffuse  shape= (3346175, 12)  dtype= float32
+  peek row0: [[1.3804436e-04 4.4703484e-05 2.8579962e-08 1.2805685e-09 6.4319465e-09]]
+DATASET: BHParticles/EnergyReservoirs  shape= (3346175,)  dtype= float32
+  peek: [5.6250000e+00 6.1264038e-03 1.1781250e+01 4.0721893e-04 7.9274178e-05]
+DATASET: BHParticles/FOFGroupIDs  shape= (3346175,)  dtype= int64
+  peek: [ 498  778 1045 1095 1120]
+DATASET: BHParticles/FormationScaleFactors  shape= (3346175,)  dtype= float32
+  peek: [0.3826599  0.4544983  0.51226807 0.5317993  0.81469727]
+DATASET: BHParticles/GWMassLosses  shape= (3346175,)  dtype= float32
+  peek: [0. 0. 0. 0. 0.]
+DATASET: BHParticles/GasCircularVelocities  shape= (3346175, 3)  dtype= float32
+  peek row0: [[ 3.3398438 -2.296875  -0.7392578]]
+DATASET: BHParticles/GasCurlVelocities  shape= (3346175, 3)  dtype= float32
+  peek row0: [[-10672.   7584.   2392.]]
+DATASET: BHParticles/GasDensities  shape= (3346175,)  dtype= float32
+  peek: [2.337280e+05 6.870000e+02 3.063808e+06 1.978125e+01 4.943750e+01]
+DATASET: BHParticles/GasRelativeVelocities  shape= (3346175, 3)  dtype= float32
+  peek row0: [[ -3.1796875 -14.828125   12.1875   ]]
+DATASET: BHParticles/GasSoundSpeeds  shape= (3346175,)  dtype= float32
+  peek: [ 9.65625 21.1875   9.125   27.375   37.6875 ]
+DATASET: BHParticles/GasTemperatures  shape= (3346175,)  dtype= float32
+  peek: [ 4012. 19424.  3572. 32352. 61760.]
+DATASET: BHParticles/GasVelocityDispersions  shape= (3346175,)  dtype= float32
+  peek: [ 7.9375     3.0664062  5.875      8.703125  10.65625  ]
+DATASET: BHParticles/GroupNr_bound  shape= (3346175,)  dtype= int64
+  peek: [ 69631940  22720607  58005647 134130390  75903304]
+DATASET: BHParticles/HaloCatalogueIndex  shape= (3346175,)  dtype= int64
+  peek: [ 69631940  22720607  58005647 134130390  75903304]
+DATASET: BHParticles/IronMassesFromSNIa  shape= (3346175,)  dtype= float32
+  peek: [1.2048986e-08 4.6507921e-08 5.1397365e-08 1.2136070e-11 3.2945536e-08]
+DATASET: BHParticles/IronMassesFromSNIaDiffuse  shape= (3346175,)  dtype= float32
+  peek: [1.2048986e-08 4.6507921e-08 5.1397365e-08 1.2136070e-11 3.2945536e-08]
+DATASET: BHParticles/LastAGNFeedbackScaleFactors  shape= (3346175,)  dtype= float32
+  peek: [0.9597168  0.         0.97491455 0.         0.        ]
+DATASET: BHParticles/LastHighEddingtonFractionScaleFactors  shape= (3346175,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: BHParticles/LastMajorMergerScaleFactors  shape= (3346175,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: BHParticles/LastMinorMergerScaleFactors  shape= (3346175,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: BHParticles/LastRepositionVelocities  shape= (3346175,)  dtype= float32
+  peek: [0. 0. 0. 0. 0.]
+DATASET: BHParticles/MassesFromAGB  shape= (3346175,)  dtype= float32
+  peek: [1.6279519e-06 4.4852495e-06 5.0514936e-06 1.0186341e-09 3.7997961e-06]
+DATASET: BHParticles/MassesFromCEJSN  shape= (3346175,)  dtype= float32
+  peek: [9.0639302e-17 9.8662398e-18 1.2214215e-18 2.0519373e-19 1.1031757e-17]
+DATASET: BHParticles/MassesFromCollapsar  shape= (3346175,)  dtype= float32
+  peek: [6.7085009e-18 6.9541405e-19 1.3594879e-19 2.5966854e-20 8.2077493e-19]
+DATASET: BHParticles/MassesFromNSM  shape= (3346175,)  dtype= float32
+  peek: [3.8580250e-15 1.4627188e-14 1.7097435e-14 3.8353652e-18 1.4516166e-14]
+DATASET: BHParticles/MassesFromSNII  shape= (3346175,)  dtype= float32
+  peek: [3.8882717e-08 3.8271537e-09 8.5947249e-10 1.3051249e-10 4.4528861e-09]
+DATASET: BHParticles/MassesFromSNIa  shape= (3346175,)  dtype= float32
+  peek: [1.9528670e-08 7.5320713e-08 8.3236955e-08 1.9639401e-11 5.3318217e-08]
+DATASET: BHParticles/MetalMasses  shape= (3346175, 12)  dtype= float32
+  peek row0: [[5.7916623e-08 1.9528670e-08 1.6279519e-06 3.8882717e-08 1.9528670e-08]]
+DATASET: BHParticles/MetalMassesFromAGB  shape= (3346175,)  dtype= float32
+  peek: [3.2188836e-08 6.8685040e-08 8.2654878e-08 4.6753712e-12 3.8766302e-08]
+DATASET: BHParticles/MetalMassesFromSNII  shape= (3346175,)  dtype= float32
+  peek: [6.1627361e-09 6.2755134e-10 1.2846613e-10 1.6939339e-11 6.7393557e-10]
+DATASET: BHParticles/MetalMassesFromSNIa  shape= (3346175,)  dtype= float32
+  peek: [1.9528670e-08 7.5320713e-08 8.3236955e-08 1.9639401e-11 5.3318217e-08]
+DATASET: BHParticles/MinimalTimeBinScaleFactors  shape= (3346175,)  dtype= float32
+  peek: [0.90252686 0.5826416  0.8414917  0.64624023 0.81500244]
+DATASET: BHParticles/MinimalTimeBins  shape= (3346175,)  dtype= int8
+  peek: [42 43 41 43 43]
+DATASET: BHParticles/NumberOfAGNEvents  shape= (3346175,)  dtype= int32
+  peek: [2 0 5 0 0]
+DATASET: BHParticles/NumberOfGasNeighbours  shape= (3346175,)  dtype= int32
+  peek: [24 20 26 45 31]
+DATASET: BHParticles/NumberOfHeatingEvents  shape= (3346175,)  dtype= int32
+  peek: [2 0 5 0 0]
+DATASET: BHParticles/NumberOfMergers  shape= (3346175,)  dtype= int32
+  peek: [0 0 0 0 0]
+DATASET: BHParticles/NumberOfRepositions  shape= (3346175,)  dtype= int32
+  peek: [185 121 132  94  30]
+DATASET: BHParticles/NumberOfTimeSteps  shape= (3346175,)  dtype= int32
+  peek: [1042  821  726  663  259]
+DATASET: BHParticles/ParticleIDs  shape= (3346175,)  dtype= uint64
+  peek: [241029917715 240667682363 241319082795 241536140101 243996515611]
+DATASET: BHParticles/Potentials  shape= (3346175,)  dtype= float32
+  peek: [-623616. -696320. -680960. -740352. -564224.]
+DATASET: BHParticles/ProgenitorParticleIDs  shape= (3346175,)  dtype= int64
+  peek: [241029917715 240667682363 241319082795 241536140101 243996515611]
+DATASET: BHParticles/Rank_bound  shape= (3346175,)  dtype= int64
+  peek: [0 0 0 0 0]
+DATASET: BHParticles/SmoothingLengths  shape= (3346175,)  dtype= float32
+  peek: [0.0011425  0.00799561 0.00048161 0.02578735 0.01913452]
+DATASET: BHParticles/SpecificPotentialEnergies  shape= (3346175,)  dtype= float32
+  peek: [-7568.0083 -4637.8066 -5784.907  -2114.8557 -4279.781 ]
+DATASET: BHParticles/SplitCounts  shape= (3346175,)  dtype= uint8
+  peek: [0 0 0 0 0]
+DATASET: BHParticles/SplitTrees  shape= (3346175,)  dtype= int64
+  peek: [0 0 0 0 0]
+DATASET: BHParticles/SubgridMasses  shape= (3346175,)  dtype= float32
+  peek: [3.0584633e-06 2.9988587e-06 3.1441450e-06 2.9988587e-06 2.9988587e-06]
+DATASET: BHParticles/SwallowedAngularMomenta  shape= (3346175, 3)  dtype= float32
+  peek row0: [[0. 0. 0.]]
+DATASET: BHParticles/TotalAccretedMasses  shape= (3346175,)  dtype= float32
+  peek: [5.9255399e-08 1.2263968e-11 1.4249235e-07 8.1534779e-13 1.5876189e-13]
+DATASET: BHParticles/Velocities  shape= (3346175, 3)  dtype= float32
+  peek row0: [[307.69366 269.79364 585.29364]]
+GROUP:   Cells
+DATASET: Cells/Centres  shape= (262144, 3)  dtype= float64
+  peek row0: [[1.5625 1.5625 1.5625]]
+GROUP:   Cells/Counts
+DATASET: Cells/Counts/PartType0  shape= (262144,)  dtype= int64
+  peek: [287993 104015  28078  36780  39650]
+DATASET: Cells/Counts/PartType1  shape= (262144,)  dtype= int64
+  peek: [1248412  423861  115126  159401  152996]
+DATASET: Cells/Counts/PartType4  shape= (262144,)  dtype= int64
+  peek: [29037   448    21    78    34]
+DATASET: Cells/Counts/PartType5  shape= (262144,)  dtype= int64
+  peek: [12  8  2  2  1]
+GROUP:   Cells/Files
+DATASET: Cells/Files/PartType0  shape= (262144,)  dtype= int32
+  peek: [0 0 0 0 0]
+DATASET: Cells/Files/PartType1  shape= (262144,)  dtype= int32
+  peek: [0 0 0 0 0]
+DATASET: Cells/Files/PartType4  shape= (262144,)  dtype= int32
+  peek: [0 0 0 0 0]
+DATASET: Cells/Files/PartType5  shape= (262144,)  dtype= int32
+  peek: [0 0 0 0 0]
+GROUP:   Cells/MaxPositions
+DATASET: Cells/MaxPositions/PartType0  shape= (262144, 3)  dtype= float64
+  peek row0: [[3.12499444 3.12497257 3.12491319]]
+DATASET: Cells/MaxPositions/PartType1  shape= (262144, 3)  dtype= float64
+  peek row0: [[3.12499726 3.12499035 3.12498163]]
+DATASET: Cells/MaxPositions/PartType4  shape= (262144, 3)  dtype= float64
+  peek row0: [[3.0204737  3.09028121 2.83846683]]
+DATASET: Cells/MaxPositions/PartType5  shape= (262144, 3)  dtype= float64
+  peek row0: [[1.98713762 2.42073329 2.46755209]]
+GROUP:   Cells/Meta-data
+GROUP:   Cells/MinPositions
+DATASET: Cells/MinPositions/PartType0  shape= (262144, 3)  dtype= float64
+  peek row0: [[8.62682128e-07 1.02143217e-05 4.52568744e-06]]
+DATASET: Cells/MinPositions/PartType1  shape= (262144, 3)  dtype= float64
+  peek row0: [[3.45728535e-06 1.03955097e-06 1.00500208e-05]]
+DATASET: Cells/MinPositions/PartType4  shape= (262144, 3)  dtype= float64
+  peek row0: [[0.01636626 0.00660312 0.14952617]]
+DATASET: Cells/MinPositions/PartType5  shape= (262144, 3)  dtype= float64
+  peek row0: [[0.13047204 0.07325673 0.3163381 ]]
+GROUP:   Cells/OffsetsInFile
+DATASET: Cells/OffsetsInFile/PartType0  shape= (262144,)  dtype= int64
+  peek: [11811998468 11812286461 11812390476 11812418554 25028662139]
+DATASET: Cells/OffsetsInFile/PartType1  shape= (262144,)  dtype= int64
+  peek: [ 50523771611  50525020023  50525443884  50525559010 107140014723]
+DATASET: Cells/OffsetsInFile/PartType4  shape= (262144,)  dtype= int64
+  peek: [ 820812789  820841826  820842274  820842295 1753175144]
+DATASET: Cells/OffsetsInFile/PartType5  shape= (262144,)  dtype= int64
+  peek: [1587327 1587339 1587347 1587349 3296428]
+GROUP:   Code
+GROUP:   Cosmology
+GROUP:   DMParticles
+DATASET: DMParticles/Coordinates  shape= (108866306048, 3)  dtype= float64
+  peek row0: [[ 28.31298802 143.86334202 103.49756602]]
+DATASET: DMParticles/FOFGroupIDs  shape= (108866306048,)  dtype= int64
+  peek: [2147483647 2147483647 2147483647 2147483647 2147483647]
+DATASET: DMParticles/GroupNr_bound  shape= (108866306048,)  dtype= int64
+  peek: [-1 -1 -1 -1 -1]
+DATASET: DMParticles/HaloCatalogueIndex  shape= (108866306048,)  dtype= int64
+  peek: [-1 -1 -1 -1 -1]
+DATASET: DMParticles/Masses  shape= (108866306048,)  dtype= float32
+  peek: [0.00024146 0.00023681 0.00023592 0.00023951 0.00023529]
+DATASET: DMParticles/ParticleIDs  shape= (108866306048,)  dtype= uint64
+  peek: [22897837266 22861651026 22970221776 22897843281 22970227793]
+DATASET: DMParticles/Potentials  shape= (108866306048,)  dtype= float32
+  peek: [-446464. -444928. -443392. -443392. -452096.]
+DATASET: DMParticles/Rank_bound  shape= (108866306048,)  dtype= int64
+  peek: [-1 -1 -1 -1 -1]
+DATASET: DMParticles/SpecificPotentialEnergies  shape= (108866306048,)  dtype= float32
+  peek: [0. 0. 0. 0. 0.]
+DATASET: DMParticles/Velocities  shape= (108866306048, 3)  dtype= float32
+  peek row0: [[293.09534 306.79532 477.19534]]
+GROUP:   GasParticles
+DATASET: GasParticles/AveragedStarFormationRates  shape= (25434312703, 2)  dtype= float32
+  peek row0: [[0. 0.]]
+DATASET: GasParticles/ComptonYParameters  shape= (25434312703,)  dtype= float64
+  peek: [1.74141768e-17 1.51289084e-17 1.13087038e-17 1.34083992e-17
+ 1.42900877e-17]
+DATASET: GasParticles/Coordinates  shape= (25434312703, 3)  dtype= float64
+  peek row0: [[ 28.27351595 144.13977595 103.13643195]]
+DATASET: GasParticles/Densities  shape= (25434312703,)  dtype= float32
+  peek: [0.04174805 0.02700806 0.02157593 0.02526855 0.0296936 ]
+DATASET: GasParticles/DensitiesAtLastAGNEvent  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: GasParticles/DensitiesAtLastSupernovaEvent  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: GasParticles/DiffusionParameters  shape= (25434312703,)  dtype= float32
+  peek: [0.04595947 0.         0.1027832  0.         0.26660156]
+DATASET: GasParticles/DustMassFractions  shape= (25434312703, 6)  dtype= float32
+  peek row0: [[8.533857e-20 4.433688e-22 2.386416e-22 8.655618e-21 5.880737e-25]]
+DATASET: GasParticles/ElementMassFractions  shape= (25434312703, 12)  dtype= float32
+  peek row0: [[7.5585938e-01 2.4389648e-01 1.7943546e-17 4.1292856e-19 1.8257965e-16]]
+DATASET: GasParticles/ElementMassFractionsDiffuse  shape= (25434312703, 12)  dtype= float32
+  peek row0: [[7.5585938e-01 2.4389648e-01 1.7835126e-17 4.1292856e-19 1.8257965e-16]]
+DATASET: GasParticles/EnergiesReceivedFromAGNFeedback  shape= (25434312703,)  dtype= float32
+  peek: [0. 0. 0. 0. 0.]
+DATASET: GasParticles/Entropies  shape= (25434312703,)  dtype= float32
+  peek: [87.    94.125 87.625 92.75  88.875]
+DATASET: GasParticles/FOFGroupIDs  shape= (25434312703,)  dtype= int64
+  peek: [2147483647 2147483647 2147483647 2147483647 2147483647]
+DATASET: GasParticles/GroupNr_bound  shape= (25434312703,)  dtype= int64
+  peek: [-1 -1 -1 -1 -1]
+DATASET: GasParticles/HIIregionsEndTime  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: GasParticles/HaloCatalogueIndex  shape= (25434312703,)  dtype= int64
+  peek: [-1 -1 -1 -1 -1]
+DATASET: GasParticles/InternalEnergies  shape= (25434312703,)  dtype= float32
+  peek: [15.71875  12.703125 10.1875   11.96875  12.78125 ]
+DATASET: GasParticles/IronMassFractionsFromSNIa  shape= (25434312703,)  dtype= float32
+  peek: [3.7640027e-20 6.5595423e-22 2.0410682e-22 5.9195113e-24 7.6927797e-23]
+DATASET: GasParticles/IronMassFractionsFromSNIaDiffuse  shape= (25434312703,)  dtype= float32
+  peek: [3.7640027e-20 6.5595423e-22 2.0410682e-22 5.9195113e-24 7.6927797e-23]
+DATASET: GasParticles/LaplacianInternalEnergies  shape= (25434312703,)  dtype= float32
+  peek: [ 97.875   -35.0625   49.4375   -5.28125  77.375  ]
+DATASET: GasParticles/LastAGNFeedbackScaleFactors  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: GasParticles/LastEnergiesReceivedFromAGNFeedback  shape= (25434312703,)  dtype= float32
+  peek: [0. 0. 0. 0. 0.]
+DATASET: GasParticles/LastFOFHaloMasses  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: GasParticles/LastFOFHaloMassesScaleFactors  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: GasParticles/LastISMScaleFactors  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: GasParticles/LastKineticEarlyFeedbackScaleFactors  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: GasParticles/LastSNIIKineticFeedbackScaleFactors  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: GasParticles/LastSNIIKineticFeedbackvkick  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: GasParticles/LastSNIIThermalFeedbackScaleFactors  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: GasParticles/LastSNIaThermalFeedbackScaleFactors  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: GasParticles/LastStarFormationScaleFactors  shape= (25434312703,)  dtype= float32
+  peek: [0. 0. 0. 0. 0.]
+DATASET: GasParticles/MassFractionsFromAGB  shape= (25434312703,)  dtype= float32
+  peek: [2.6183482e-17 5.0991383e-19 1.0778494e-19 4.3542787e-21 5.3892471e-20]
+DATASET: GasParticles/MassFractionsFromCEJSN  shape= (25434312703,)  dtype= float32
+  peek: [9.8873933e-25 8.6585373e-27 8.4919299e-26 4.8357173e-28 1.9462776e-26]
+DATASET: GasParticles/MassFractionsFromCollapsar  shape= (25434312703,)  dtype= float32
+  peek: [1.89023695e-25 1.03814095e-27 1.22304995e-26 7.05044434e-29
+ 3.09233475e-27]
+DATASET: GasParticles/MassFractionsFromNSM  shape= (25434312703,)  dtype= float32
+  peek: [1.5529831e-25 3.7171126e-27 1.6383063e-26 9.8903436e-29 2.5338212e-27]
+DATASET: GasParticles/MassFractionsFromSNII  shape= (25434312703,)  dtype= float32
+  peek: [1.3877788e-15 5.9360069e-18 5.0578031e-17 3.2949582e-19 1.7943546e-17]
+DATASET: GasParticles/MassFractionsFromSNIa  shape= (25434312703,)  dtype= float32
+  peek: [6.0986372e-20 1.0620999e-21 3.3045865e-22 9.5901252e-24 1.2469748e-22]
+DATASET: GasParticles/Masses  shape= (25434312703,)  dtype= float32
+  peek: [0.00018912 0.00020316 0.00018951 0.00019115 0.00019092]
+DATASET: GasParticles/MaximalSNIIKineticFeedbackvkick  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: GasParticles/MaximalTemperatureScaleFactors  shape= (25434312703,)  dtype= float32
+  peek: [0.1210022  0.12010193 0.12010193 0.12010193 0.1210022 ]
+DATASET: GasParticles/MaximalTemperatures  shape= (25434312703,)  dtype= float32
+  peek: [23168. 25728. 24160. 25504. 23552.]
+DATASET: GasParticles/MeanIronWeightedRedshifts  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: GasParticles/MeanMetalWeightedRedshifts  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: GasParticles/MetalMassFractions  shape= (25434312703,)  dtype= float32
+  peek: [2.7972416e-16 8.0468130e-19 6.1054135e-18 4.6057417e-20 3.1374100e-18]
+DATASET: GasParticles/MetalMassFractionsFromAGB  shape= (25434312703,)  dtype= float32
+  peek: [2.5665098e-19 4.6255940e-21 8.1560008e-22 3.8877489e-23 4.5908524e-22]
+DATASET: GasParticles/MetalMassFractionsFromSNII  shape= (25434312703,)  dtype= float32
+  peek: [2.7929048e-16 7.9875207e-19 6.1054135e-18 4.6004477e-20 3.1374100e-18]
+DATASET: GasParticles/MetalMassFractionsFromSNIa  shape= (25434312703,)  dtype= float32
+  peek: [6.0986372e-20 1.0620999e-21 3.3045865e-22 9.5901252e-24 1.2469748e-22]
+DATASET: GasParticles/MinimalSmoothingLengthScaleFactors  shape= (25434312703,)  dtype= float32
+  peek: [0.015625 0.015625 0.015625 0.015625 0.015625]
+DATASET: GasParticles/MinimalSmoothingLengths  shape= (25434312703,)  dtype= float32
+  peek: [0.08691406 0.09240723 0.08935547 0.09228516 0.08825684]
+DATASET: GasParticles/ParticleIDs  shape= (25434312703,)  dtype= uint64
+  peek: [240739044173 240594263121 240739020113 240666647633 240739032143]
+DATASET: GasParticles/Potentials  shape= (25434312703,)  dtype= float32
+  peek: [-437760. -438784. -446976. -446464. -441856.]
+DATASET: GasParticles/Pressures  shape= (25434312703,)  dtype= float32
+  peek: [0.4375     0.22875977 0.14648438 0.20166016 0.2529297 ]
+DATASET: GasParticles/ProgenitorParticleIDs  shape= (25434312703,)  dtype= int64
+  peek: [240739044173 240594263121 240739020113 240666647633 240739032143]
+DATASET: GasParticles/Rank_bound  shape= (25434312703,)  dtype= int64
+  peek: [-1 -1 -1 -1 -1]
+DATASET: GasParticles/SmoothingLengths  shape= (25434312703,)  dtype= float32
+  peek: [0.20458984 0.23852539 0.25585938 0.24365234 0.22998047]
+DATASET: GasParticles/SpeciesFractions  shape= (25434312703, 10)  dtype= float32
+  peek row0: [[1.1601562e+00 1.0170043e-06 9.9804688e-01 0.0000000e+00 1.6189006e-10]]
+DATASET: GasParticles/SpecificPotentialEnergies  shape= (25434312703,)  dtype= float32
+  peek: [0. 0. 0. 0. 0.]
+DATASET: GasParticles/SplitCounts  shape= (25434312703,)  dtype= uint8
+  peek: [0 0 0 0 0]
+DATASET: GasParticles/SplitTrees  shape= (25434312703,)  dtype= int64
+  peek: [0 0 0 0 0]
+DATASET: GasParticles/StarFormationRates  shape= (25434312703,)  dtype= float32
+  peek: [0. 0. 0. 0. 0.]
+DATASET: GasParticles/TemperatureIncreasesAtLastAGNEvent  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: GasParticles/TemperatureIncreasesAtLastSupernovaEvent  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: GasParticles/Temperatures  shape= (25434312703,)  dtype= float32
+  peek: [750.  606.  485.5 570.  609. ]
+DATASET: GasParticles/TotalDustMassFractions  shape= (25434312703,)  dtype= float32
+  peek: [9.4655932e-20 2.1572870e-21 3.9042925e-22 3.0605683e-23 2.6171995e-21]
+DATASET: GasParticles/TotalElectronNumberDensities  shape= (25434312703,)  dtype= float64
+  peek: [4.35218078e+65 2.81753486e+65 2.25075777e+65 2.63641286e+65
+ 3.09450871e+65]
+DATASET: GasParticles/Velocities  shape= (25434312703, 3)  dtype= float32
+  peek row0: [[287.17426 307.17426 472.27423]]
+DATASET: GasParticles/VelocityDispersions  shape= (25434312703,)  dtype= float32
+  peek: [213.  267.5 344.  290.5 276.5]
+DATASET: GasParticles/VelocityDivergenceTimeDifferentials  shape= (25434312703,)  dtype= float32
+  peek: [-12576. -10208. -12288. -10608. -11104.]
+DATASET: GasParticles/VelocityDivergences  shape= (25434312703,)  dtype= float32
+  peek: [243.   240.5  248.75 243.   244.5 ]
+DATASET: GasParticles/ViscosityParameters  shape= (25434312703,)  dtype= float32
+  peek: [0.09350586 0.09509277 0.09509277 0.09533691 0.09460449]
+DATASET: GasParticles/XrayLuminosities  shape= (25434312703, 3)  dtype= float64
+  peek row0: [[0. 0. 0.]]
+DATASET: GasParticles/XrayPhotonLuminosities  shape= (25434312703, 3)  dtype= float64
+  peek row0: [[0. 0. 0.]]
+GROUP:   GravityScheme
+GROUP:   Header
+DATASET: Header/PartTypeNames  shape= (7,)  dtype= |S128
+  peek: [b'Gas' b'DM' b'DMBackground' b'Sink' b'Stars']
+GROUP:   HydroScheme
+GROUP:   ICs_parameters
+GROUP:   InternalCodeUnits
+GROUP:   Parameters
+GROUP:   PartType0
+DATASET: PartType0/AveragedStarFormationRates  shape= (25434312703, 2)  dtype= float32
+  peek row0: [[0. 0.]]
+DATASET: PartType0/ComptonYParameters  shape= (25434312703,)  dtype= float64
+  peek: [1.74141768e-17 1.51289084e-17 1.13087038e-17 1.34083992e-17
+ 1.42900877e-17]
+DATASET: PartType0/Coordinates  shape= (25434312703, 3)  dtype= float64
+  peek row0: [[ 28.27351595 144.13977595 103.13643195]]
+DATASET: PartType0/Densities  shape= (25434312703,)  dtype= float32
+  peek: [0.04174805 0.02700806 0.02157593 0.02526855 0.0296936 ]
+DATASET: PartType0/DensitiesAtLastAGNEvent  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType0/DensitiesAtLastSupernovaEvent  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType0/DiffusionParameters  shape= (25434312703,)  dtype= float32
+  peek: [0.04595947 0.         0.1027832  0.         0.26660156]
+DATASET: PartType0/DustMassFractions  shape= (25434312703, 6)  dtype= float32
+  peek row0: [[8.533857e-20 4.433688e-22 2.386416e-22 8.655618e-21 5.880737e-25]]
+DATASET: PartType0/ElementMassFractions  shape= (25434312703, 12)  dtype= float32
+  peek row0: [[7.5585938e-01 2.4389648e-01 1.7943546e-17 4.1292856e-19 1.8257965e-16]]
+DATASET: PartType0/ElementMassFractionsDiffuse  shape= (25434312703, 12)  dtype= float32
+  peek row0: [[7.5585938e-01 2.4389648e-01 1.7835126e-17 4.1292856e-19 1.8257965e-16]]
+DATASET: PartType0/EnergiesReceivedFromAGNFeedback  shape= (25434312703,)  dtype= float32
+  peek: [0. 0. 0. 0. 0.]
+DATASET: PartType0/Entropies  shape= (25434312703,)  dtype= float32
+  peek: [87.    94.125 87.625 92.75  88.875]
+DATASET: PartType0/FOFGroupIDs  shape= (25434312703,)  dtype= int64
+  peek: [2147483647 2147483647 2147483647 2147483647 2147483647]
+DATASET: PartType0/GroupNr_bound  shape= (25434312703,)  dtype= int64
+  peek: [-1 -1 -1 -1 -1]
+DATASET: PartType0/HIIregionsEndTime  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType0/HaloCatalogueIndex  shape= (25434312703,)  dtype= int64
+  peek: [-1 -1 -1 -1 -1]
+DATASET: PartType0/InternalEnergies  shape= (25434312703,)  dtype= float32
+  peek: [15.71875  12.703125 10.1875   11.96875  12.78125 ]
+DATASET: PartType0/IronMassFractionsFromSNIa  shape= (25434312703,)  dtype= float32
+  peek: [3.7640027e-20 6.5595423e-22 2.0410682e-22 5.9195113e-24 7.6927797e-23]
+DATASET: PartType0/IronMassFractionsFromSNIaDiffuse  shape= (25434312703,)  dtype= float32
+  peek: [3.7640027e-20 6.5595423e-22 2.0410682e-22 5.9195113e-24 7.6927797e-23]
+DATASET: PartType0/LaplacianInternalEnergies  shape= (25434312703,)  dtype= float32
+  peek: [ 97.875   -35.0625   49.4375   -5.28125  77.375  ]
+DATASET: PartType0/LastAGNFeedbackScaleFactors  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType0/LastEnergiesReceivedFromAGNFeedback  shape= (25434312703,)  dtype= float32
+  peek: [0. 0. 0. 0. 0.]
+DATASET: PartType0/LastFOFHaloMasses  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType0/LastFOFHaloMassesScaleFactors  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType0/LastISMScaleFactors  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType0/LastKineticEarlyFeedbackScaleFactors  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType0/LastSNIIKineticFeedbackScaleFactors  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType0/LastSNIIKineticFeedbackvkick  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType0/LastSNIIThermalFeedbackScaleFactors  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType0/LastSNIaThermalFeedbackScaleFactors  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType0/LastStarFormationScaleFactors  shape= (25434312703,)  dtype= float32
+  peek: [0. 0. 0. 0. 0.]
+DATASET: PartType0/MassFractionsFromAGB  shape= (25434312703,)  dtype= float32
+  peek: [2.6183482e-17 5.0991383e-19 1.0778494e-19 4.3542787e-21 5.3892471e-20]
+DATASET: PartType0/MassFractionsFromCEJSN  shape= (25434312703,)  dtype= float32
+  peek: [9.8873933e-25 8.6585373e-27 8.4919299e-26 4.8357173e-28 1.9462776e-26]
+DATASET: PartType0/MassFractionsFromCollapsar  shape= (25434312703,)  dtype= float32
+  peek: [1.89023695e-25 1.03814095e-27 1.22304995e-26 7.05044434e-29
+ 3.09233475e-27]
+DATASET: PartType0/MassFractionsFromNSM  shape= (25434312703,)  dtype= float32
+  peek: [1.5529831e-25 3.7171126e-27 1.6383063e-26 9.8903436e-29 2.5338212e-27]
+DATASET: PartType0/MassFractionsFromSNII  shape= (25434312703,)  dtype= float32
+  peek: [1.3877788e-15 5.9360069e-18 5.0578031e-17 3.2949582e-19 1.7943546e-17]
+DATASET: PartType0/MassFractionsFromSNIa  shape= (25434312703,)  dtype= float32
+  peek: [6.0986372e-20 1.0620999e-21 3.3045865e-22 9.5901252e-24 1.2469748e-22]
+DATASET: PartType0/Masses  shape= (25434312703,)  dtype= float32
+  peek: [0.00018912 0.00020316 0.00018951 0.00019115 0.00019092]
+DATASET: PartType0/MaximalSNIIKineticFeedbackvkick  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType0/MaximalTemperatureScaleFactors  shape= (25434312703,)  dtype= float32
+  peek: [0.1210022  0.12010193 0.12010193 0.12010193 0.1210022 ]
+DATASET: PartType0/MaximalTemperatures  shape= (25434312703,)  dtype= float32
+  peek: [23168. 25728. 24160. 25504. 23552.]
+DATASET: PartType0/MeanIronWeightedRedshifts  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType0/MeanMetalWeightedRedshifts  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType0/MetalMassFractions  shape= (25434312703,)  dtype= float32
+  peek: [2.7972416e-16 8.0468130e-19 6.1054135e-18 4.6057417e-20 3.1374100e-18]
+DATASET: PartType0/MetalMassFractionsFromAGB  shape= (25434312703,)  dtype= float32
+  peek: [2.5665098e-19 4.6255940e-21 8.1560008e-22 3.8877489e-23 4.5908524e-22]
+DATASET: PartType0/MetalMassFractionsFromSNII  shape= (25434312703,)  dtype= float32
+  peek: [2.7929048e-16 7.9875207e-19 6.1054135e-18 4.6004477e-20 3.1374100e-18]
+DATASET: PartType0/MetalMassFractionsFromSNIa  shape= (25434312703,)  dtype= float32
+  peek: [6.0986372e-20 1.0620999e-21 3.3045865e-22 9.5901252e-24 1.2469748e-22]
+DATASET: PartType0/MinimalSmoothingLengthScaleFactors  shape= (25434312703,)  dtype= float32
+  peek: [0.015625 0.015625 0.015625 0.015625 0.015625]
+DATASET: PartType0/MinimalSmoothingLengths  shape= (25434312703,)  dtype= float32
+  peek: [0.08691406 0.09240723 0.08935547 0.09228516 0.08825684]
+DATASET: PartType0/ParticleIDs  shape= (25434312703,)  dtype= uint64
+  peek: [240739044173 240594263121 240739020113 240666647633 240739032143]
+DATASET: PartType0/Potentials  shape= (25434312703,)  dtype= float32
+  peek: [-437760. -438784. -446976. -446464. -441856.]
+DATASET: PartType0/Pressures  shape= (25434312703,)  dtype= float32
+  peek: [0.4375     0.22875977 0.14648438 0.20166016 0.2529297 ]
+DATASET: PartType0/ProgenitorParticleIDs  shape= (25434312703,)  dtype= int64
+  peek: [240739044173 240594263121 240739020113 240666647633 240739032143]
+DATASET: PartType0/Rank_bound  shape= (25434312703,)  dtype= int64
+  peek: [-1 -1 -1 -1 -1]
+DATASET: PartType0/SmoothingLengths  shape= (25434312703,)  dtype= float32
+  peek: [0.20458984 0.23852539 0.25585938 0.24365234 0.22998047]
+DATASET: PartType0/SpeciesFractions  shape= (25434312703, 10)  dtype= float32
+  peek row0: [[1.1601562e+00 1.0170043e-06 9.9804688e-01 0.0000000e+00 1.6189006e-10]]
+DATASET: PartType0/SpecificPotentialEnergies  shape= (25434312703,)  dtype= float32
+  peek: [0. 0. 0. 0. 0.]
+DATASET: PartType0/SplitCounts  shape= (25434312703,)  dtype= uint8
+  peek: [0 0 0 0 0]
+DATASET: PartType0/SplitTrees  shape= (25434312703,)  dtype= int64
+  peek: [0 0 0 0 0]
+DATASET: PartType0/StarFormationRates  shape= (25434312703,)  dtype= float32
+  peek: [0. 0. 0. 0. 0.]
+DATASET: PartType0/TemperatureIncreasesAtLastAGNEvent  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType0/TemperatureIncreasesAtLastSupernovaEvent  shape= (25434312703,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType0/Temperatures  shape= (25434312703,)  dtype= float32
+  peek: [750.  606.  485.5 570.  609. ]
+DATASET: PartType0/TotalDustMassFractions  shape= (25434312703,)  dtype= float32
+  peek: [9.4655932e-20 2.1572870e-21 3.9042925e-22 3.0605683e-23 2.6171995e-21]
+DATASET: PartType0/TotalElectronNumberDensities  shape= (25434312703,)  dtype= float64
+  peek: [4.35218078e+65 2.81753486e+65 2.25075777e+65 2.63641286e+65
+ 3.09450871e+65]
+DATASET: PartType0/Velocities  shape= (25434312703, 3)  dtype= float32
+  peek row0: [[287.17426 307.17426 472.27423]]
+DATASET: PartType0/VelocityDispersions  shape= (25434312703,)  dtype= float32
+  peek: [213.  267.5 344.  290.5 276.5]
+DATASET: PartType0/VelocityDivergenceTimeDifferentials  shape= (25434312703,)  dtype= float32
+  peek: [-12576. -10208. -12288. -10608. -11104.]
+DATASET: PartType0/VelocityDivergences  shape= (25434312703,)  dtype= float32
+  peek: [243.   240.5  248.75 243.   244.5 ]
+DATASET: PartType0/ViscosityParameters  shape= (25434312703,)  dtype= float32
+  peek: [0.09350586 0.09509277 0.09509277 0.09533691 0.09460449]
+DATASET: PartType0/XrayLuminosities  shape= (25434312703, 3)  dtype= float64
+  peek row0: [[0. 0. 0.]]
+DATASET: PartType0/XrayPhotonLuminosities  shape= (25434312703, 3)  dtype= float64
+  peek row0: [[0. 0. 0.]]
+GROUP:   PartType1
+DATASET: PartType1/Coordinates  shape= (108866306048, 3)  dtype= float64
+  peek row0: [[ 28.31298802 143.86334202 103.49756602]]
+DATASET: PartType1/FOFGroupIDs  shape= (108866306048,)  dtype= int64
+  peek: [2147483647 2147483647 2147483647 2147483647 2147483647]
+DATASET: PartType1/GroupNr_bound  shape= (108866306048,)  dtype= int64
+  peek: [-1 -1 -1 -1 -1]
+DATASET: PartType1/HaloCatalogueIndex  shape= (108866306048,)  dtype= int64
+  peek: [-1 -1 -1 -1 -1]
+DATASET: PartType1/Masses  shape= (108866306048,)  dtype= float32
+  peek: [0.00024146 0.00023681 0.00023592 0.00023951 0.00023529]
+DATASET: PartType1/ParticleIDs  shape= (108866306048,)  dtype= uint64
+  peek: [22897837266 22861651026 22970221776 22897843281 22970227793]
+DATASET: PartType1/Potentials  shape= (108866306048,)  dtype= float32
+  peek: [-446464. -444928. -443392. -443392. -452096.]
+DATASET: PartType1/Rank_bound  shape= (108866306048,)  dtype= int64
+  peek: [-1 -1 -1 -1 -1]
+DATASET: PartType1/SpecificPotentialEnergies  shape= (108866306048,)  dtype= float32
+  peek: [0. 0. 0. 0. 0.]
+DATASET: PartType1/Velocities  shape= (108866306048, 3)  dtype= float32
+  peek row0: [[293.09534 306.79532 477.19534]]
+GROUP:   PartType4
+DATASET: PartType4/Ages  shape= (1781337782,)  dtype= float32
+  peek: [0.01268005 0.01307678 0.01269531 0.01269531 0.01316833]
+DATASET: PartType4/AveragedStarFormationRates  shape= (1781337782, 2)  dtype= float32
+  peek row0: [[0. 0.]]
+DATASET: PartType4/BirthDensities  shape= (1781337782,)  dtype= float32
+  peek: [18546688.  3579904. 23789568.  3964928.   894976.]
+DATASET: PartType4/BirthScaleFactors  shape= (1781337782,)  dtype= float32
+  peek: [0.18385315 0.14735413 0.18273926 0.18310547 0.13807678]
+DATASET: PartType4/BirthTemperatures  shape= (1781337782,)  dtype= float32
+  peek: [7408. 7984. 7224. 7408. 8240.]
+DATASET: PartType4/BirthVelocityDispersions  shape= (1781337782,)  dtype= float32
+  peek: [15.46875 27.8125  50.3125  23.375   31.5    ]
+DATASET: PartType4/Coordinates  shape= (1781337782, 3)  dtype= float64
+  peek row0: [[ 28.50832448 146.17289548 104.69753148]]
+DATASET: PartType4/DensitiesAtLastAGNEvent  shape= (1781337782,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType4/DensitiesAtLastSupernovaEvent  shape= (1781337782,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType4/ElementMassFractions  shape= (1781337782, 12)  dtype= float32
+  peek row0: [[7.5585938e-01 2.4389648e-01 1.9241497e-11 5.7287508e-14 1.5074875e-10]]
+DATASET: PartType4/EnergiesReceivedFromAGNFeedback  shape= (1781337782,)  dtype= float32
+  peek: [0. 0. 0. 0. 0.]
+DATASET: PartType4/FOFGroupIDs  shape= (1781337782,)  dtype= int64
+  peek: [14247  1788  1788  1788  1788]
+DATASET: PartType4/GroupNr_bound  shape= (1781337782,)  dtype= int64
+  peek: [63675867 22719935 22719935 22721097 22721097]
+DATASET: PartType4/HaloCatalogueIndex  shape= (1781337782,)  dtype= int64
+  peek: [63675867 22719935 22719935 22721097 22721097]
+DATASET: PartType4/InitialMasses  shape= (1781337782,)  dtype= float32
+  peek: [0.00018096 0.00017905 0.00017571 0.0001781  0.0001688 ]
+DATASET: PartType4/IronMassFractionsFromSNIa  shape= (1781337782,)  dtype= float32
+  peek: [1.9884268e-16 5.6896593e-29 1.7298589e-09 6.2137842e-06 0.0000000e+00]
+DATASET: PartType4/LastAGNFeedbackScaleFactors  shape= (1781337782,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType4/LastEnergiesReceivedFromAGNFeedback  shape= (1781337782,)  dtype= float32
+  peek: [0. 0. 0. 0. 0.]
+DATASET: PartType4/LastFOFHaloMasses  shape= (1781337782,)  dtype= float32
+  peek: [0.05285645 0.09851074 0.1262207  0.0925293  0.05102539]
+DATASET: PartType4/LastFOFHaloMassesScaleFactors  shape= (1781337782,)  dtype= float32
+  peek: [0.18380737 0.14685059 0.18243408 0.18243408 0.1379242 ]
+DATASET: PartType4/LastKineticEarlyFeedbackScaleFactors  shape= (1781337782,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType4/LastSNIIKineticFeedbackScaleFactors  shape= (1781337782,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType4/LastSNIIKineticFeedbackvkick  shape= (1781337782,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType4/LastSNIIThermalFeedbackScaleFactors  shape= (1781337782,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType4/LastSNIaThermalFeedbackScaleFactors  shape= (1781337782,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType4/Luminosities  shape= (1781337782, 9)  dtype= float32
+  peek row0: [[1542. 4008. 6368. 7840. 8592.]]
+DATASET: PartType4/MassFractionsFromAGB  shape= (1781337782,)  dtype= float32
+  peek: [1.7563728e-13 6.9066350e-26 9.6298754e-07 2.9525757e-03 0.0000000e+00]
+DATASET: PartType4/MassFractionsFromCEJSN  shape= (1781337782,)  dtype= float32
+  peek: [1.1909283e-18 1.8991826e-28 7.8929918e-16 9.6918029e-12 0.0000000e+00]
+DATASET: PartType4/MassFractionsFromCollapsar  shape= (1781337782,)  dtype= float32
+  peek: [1.9015890e-19 2.4824467e-29 8.0339381e-17 6.1639582e-13 0.0000000e+00]
+DATASET: PartType4/MassFractionsFromNSM  shape= (1781337782,)  dtype= float32
+  peek: [2.87461806e-20 1.46250305e-33 2.40432674e-15 8.48388026e-12
+ 0.00000000e+00]
+DATASET: PartType4/MassFractionsFromSNII  shape= (1781337782,)  dtype= float32
+  peek: [1.2078090e-09 1.3361945e-19 3.7997961e-07 3.1471252e-03 0.0000000e+00]
+DATASET: PartType4/MassFractionsFromSNIa  shape= (1781337782,)  dtype= float32
+  peek: [3.2179120e-16 9.2000903e-29 2.7976057e-09 1.0058284e-05 0.0000000e+00]
+DATASET: PartType4/Masses  shape= (1781337782,)  dtype= float32
+  peek: [1.07773245e-04 1.05964042e-04 1.04721934e-04 1.06023719e-04
+ 9.99249387e-05]
+DATASET: PartType4/MaximalSNIIKineticFeedbackvkick  shape= (1781337782,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType4/MaximalTemperatureScaleFactors  shape= (1781337782,)  dtype= float32
+  peek: [0.12010193 0.09302521 0.10625458 0.13850403 0.12197113]
+DATASET: PartType4/MaximalTemperatures  shape= (1781337782,)  dtype= float32
+  peek: [12240. 13424. 13312. 15280. 12048.]
+DATASET: PartType4/MetalMassFractions  shape= (1781337782,)  dtype= float32
+  peek: [2.3464963e-10 2.2949299e-20 4.8661605e-08 3.1232834e-04 0.0000000e+00]
+DATASET: PartType4/MetalMassFractionsFromAGB  shape= (1781337782,)  dtype= float32
+  peek: [1.3270635e-15 5.2222592e-28 9.3859853e-09 3.4809113e-05 0.0000000e+00]
+DATASET: PartType4/MetalMassFractionsFromSNII  shape= (1781337782,)  dtype= float32
+  peek: [2.3464963e-10 2.2949299e-20 3.6496203e-08 2.6750565e-04 0.0000000e+00]
+DATASET: PartType4/MetalMassFractionsFromSNIa  shape= (1781337782,)  dtype= float32
+  peek: [3.2179120e-16 9.2000903e-29 2.7976057e-09 1.0058284e-05 0.0000000e+00]
+DATASET: PartType4/ParticleIDs  shape= (1781337782,)  dtype= uint64
+  peek: [240884029769 240811621201 240883981647 240884017753 240956390231]
+DATASET: PartType4/Potentials  shape= (1781337782,)  dtype= float32
+  peek: [-533504. -548864. -547840. -551936. -550912.]
+DATASET: PartType4/ProgenitorParticleIDs  shape= (1781337782,)  dtype= int64
+  peek: [0 0 0 0 0]
+DATASET: PartType4/Rank_bound  shape= (1781337782,)  dtype= int64
+  peek: [ 25   4 267  45 224]
+DATASET: PartType4/SNIIFeedbackEnergyFractions  shape= (1781337782,)  dtype= float32
+  peek: [3.7148438  2.34375    3.7890625  2.3789062  0.84765625]
+DATASET: PartType4/SNIaRates  shape= (1781337782,)  dtype= float64
+  peek: [4233.59375    3272.83691406 4260.42578125 3309.18066406 2863.79492188]
+DATASET: PartType4/SmoothingLengths  shape= (1781337782,)  dtype= float32
+  peek: [0.07519531 0.0026474  0.0284729  0.03118896 0.03509521]
+DATASET: PartType4/SpecificPotentialEnergies  shape= (1781337782,)  dtype= float32
+  peek: [ -724.5049 -2672.4568 -1599.9657 -2362.7676 -1760.7422]
+DATASET: PartType4/SplitCounts  shape= (1781337782,)  dtype= uint8
+  peek: [0 0 0 0 0]
+DATASET: PartType4/SplitTrees  shape= (1781337782,)  dtype= int64
+  peek: [0 0 0 0 0]
+DATASET: PartType4/TemperatureIncreasesAtLastAGNEvent  shape= (1781337782,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType4/TemperatureIncreasesAtLastSupernovaEvent  shape= (1781337782,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType4/Velocities  shape= (1781337782, 3)  dtype= float32
+  peek row0: [[286.5028  325.30286 523.30286]]
+GROUP:   PartType5
+DATASET: PartType5/AGNTotalInjectedEnergies  shape= (3346175,)  dtype= float32
+  peek: [23.96875  0.      59.375    0.       0.     ]
+DATASET: PartType5/AccretedAngularMomenta  shape= (3346175, 3)  dtype= float32
+  peek row0: [[ 4.206413e-11 -9.163159e-11  3.291234e-11]]
+DATASET: PartType5/AccretionBoostFactors  shape= (3346175,)  dtype= float32
+  peek: [1. 1. 1. 1. 1.]
+DATASET: PartType5/AccretionLimitedTimeSteps  shape= (3346175,)  dtype= float32
+  peek: [6.6302549e-03 5.5724983e+00 1.2894299e-04 4.3124631e+02 4.3437933e+02]
+DATASET: PartType5/AccretionRates  shape= (3346175,)  dtype= float32
+  peek: [4.0903687e-06 4.8676156e-09 2.0909309e-04 6.2073013e-11 6.1731953e-11]
+DATASET: PartType5/AveragedAccretionRates  shape= (3346175, 2)  dtype= float32
+  peek row0: [[1.9185245e-06 4.1127205e-06]]
+DATASET: PartType5/Coordinates  shape= (3346175, 3)  dtype= float64
+  peek row0: [[ 29.52591793 149.57838893 104.95982393]]
+DATASET: PartType5/CumulativeNumberOfSeeds  shape= (3346175,)  dtype= int32
+  peek: [1 1 1 1 1]
+DATASET: PartType5/DustMasses  shape= (3346175, 6)  dtype= float32
+  peek row0: [[5.9344529e-11 2.4691360e-13 1.3278267e-13 6.5796257e-12 3.5605199e-16]]
+DATASET: PartType5/DynamicalMasses  shape= (3346175,)  dtype= float32
+  peek: [0.00018267 0.00018117 0.00018643 0.00018393 0.00018085]
+DATASET: PartType5/EddingtonFractions  shape= (3346175,)  dtype= float32
+  peek: [6.1631203e-05 7.4738637e-08 3.0670166e-03 9.5315045e-10 9.4769348e-10]
+DATASET: PartType5/ElementMasses  shape= (3346175, 12)  dtype= float32
+  peek row0: [[1.3804436e-04 4.4703484e-05 2.8638169e-08 1.2805685e-09 6.4319465e-09]]
+DATASET: PartType5/ElementMassesDiffuse  shape= (3346175, 12)  dtype= float32
+  peek row0: [[1.3804436e-04 4.4703484e-05 2.8579962e-08 1.2805685e-09 6.4319465e-09]]
+DATASET: PartType5/EnergyReservoirs  shape= (3346175,)  dtype= float32
+  peek: [5.6250000e+00 6.1264038e-03 1.1781250e+01 4.0721893e-04 7.9274178e-05]
+DATASET: PartType5/FOFGroupIDs  shape= (3346175,)  dtype= int64
+  peek: [ 498  778 1045 1095 1120]
+DATASET: PartType5/FormationScaleFactors  shape= (3346175,)  dtype= float32
+  peek: [0.3826599  0.4544983  0.51226807 0.5317993  0.81469727]
+DATASET: PartType5/GWMassLosses  shape= (3346175,)  dtype= float32
+  peek: [0. 0. 0. 0. 0.]
+DATASET: PartType5/GasCircularVelocities  shape= (3346175, 3)  dtype= float32
+  peek row0: [[ 3.3398438 -2.296875  -0.7392578]]
+DATASET: PartType5/GasCurlVelocities  shape= (3346175, 3)  dtype= float32
+  peek row0: [[-10672.   7584.   2392.]]
+DATASET: PartType5/GasDensities  shape= (3346175,)  dtype= float32
+  peek: [2.337280e+05 6.870000e+02 3.063808e+06 1.978125e+01 4.943750e+01]
+DATASET: PartType5/GasRelativeVelocities  shape= (3346175, 3)  dtype= float32
+  peek row0: [[ -3.1796875 -14.828125   12.1875   ]]
+DATASET: PartType5/GasSoundSpeeds  shape= (3346175,)  dtype= float32
+  peek: [ 9.65625 21.1875   9.125   27.375   37.6875 ]
+DATASET: PartType5/GasTemperatures  shape= (3346175,)  dtype= float32
+  peek: [ 4012. 19424.  3572. 32352. 61760.]
+DATASET: PartType5/GasVelocityDispersions  shape= (3346175,)  dtype= float32
+  peek: [ 7.9375     3.0664062  5.875      8.703125  10.65625  ]
+DATASET: PartType5/GroupNr_bound  shape= (3346175,)  dtype= int64
+  peek: [ 69631940  22720607  58005647 134130390  75903304]
+DATASET: PartType5/HaloCatalogueIndex  shape= (3346175,)  dtype= int64
+  peek: [ 69631940  22720607  58005647 134130390  75903304]
+DATASET: PartType5/IronMassesFromSNIa  shape= (3346175,)  dtype= float32
+  peek: [1.2048986e-08 4.6507921e-08 5.1397365e-08 1.2136070e-11 3.2945536e-08]
+DATASET: PartType5/IronMassesFromSNIaDiffuse  shape= (3346175,)  dtype= float32
+  peek: [1.2048986e-08 4.6507921e-08 5.1397365e-08 1.2136070e-11 3.2945536e-08]
+DATASET: PartType5/LastAGNFeedbackScaleFactors  shape= (3346175,)  dtype= float32
+  peek: [0.9597168  0.         0.97491455 0.         0.        ]
+DATASET: PartType5/LastHighEddingtonFractionScaleFactors  shape= (3346175,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType5/LastMajorMergerScaleFactors  shape= (3346175,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType5/LastMinorMergerScaleFactors  shape= (3346175,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: PartType5/LastRepositionVelocities  shape= (3346175,)  dtype= float32
+  peek: [0. 0. 0. 0. 0.]
+DATASET: PartType5/MassesFromAGB  shape= (3346175,)  dtype= float32
+  peek: [1.6279519e-06 4.4852495e-06 5.0514936e-06 1.0186341e-09 3.7997961e-06]
+DATASET: PartType5/MassesFromCEJSN  shape= (3346175,)  dtype= float32
+  peek: [9.0639302e-17 9.8662398e-18 1.2214215e-18 2.0519373e-19 1.1031757e-17]
+DATASET: PartType5/MassesFromCollapsar  shape= (3346175,)  dtype= float32
+  peek: [6.7085009e-18 6.9541405e-19 1.3594879e-19 2.5966854e-20 8.2077493e-19]
+DATASET: PartType5/MassesFromNSM  shape= (3346175,)  dtype= float32
+  peek: [3.8580250e-15 1.4627188e-14 1.7097435e-14 3.8353652e-18 1.4516166e-14]
+DATASET: PartType5/MassesFromSNII  shape= (3346175,)  dtype= float32
+  peek: [3.8882717e-08 3.8271537e-09 8.5947249e-10 1.3051249e-10 4.4528861e-09]
+DATASET: PartType5/MassesFromSNIa  shape= (3346175,)  dtype= float32
+  peek: [1.9528670e-08 7.5320713e-08 8.3236955e-08 1.9639401e-11 5.3318217e-08]
+DATASET: PartType5/MetalMasses  shape= (3346175, 12)  dtype= float32
+  peek row0: [[5.7916623e-08 1.9528670e-08 1.6279519e-06 3.8882717e-08 1.9528670e-08]]
+DATASET: PartType5/MetalMassesFromAGB  shape= (3346175,)  dtype= float32
+  peek: [3.2188836e-08 6.8685040e-08 8.2654878e-08 4.6753712e-12 3.8766302e-08]
+DATASET: PartType5/MetalMassesFromSNII  shape= (3346175,)  dtype= float32
+  peek: [6.1627361e-09 6.2755134e-10 1.2846613e-10 1.6939339e-11 6.7393557e-10]
+DATASET: PartType5/MetalMassesFromSNIa  shape= (3346175,)  dtype= float32
+  peek: [1.9528670e-08 7.5320713e-08 8.3236955e-08 1.9639401e-11 5.3318217e-08]
+DATASET: PartType5/MinimalTimeBinScaleFactors  shape= (3346175,)  dtype= float32
+  peek: [0.90252686 0.5826416  0.8414917  0.64624023 0.81500244]
+DATASET: PartType5/MinimalTimeBins  shape= (3346175,)  dtype= int8
+  peek: [42 43 41 43 43]
+DATASET: PartType5/NumberOfAGNEvents  shape= (3346175,)  dtype= int32
+  peek: [2 0 5 0 0]
+DATASET: PartType5/NumberOfGasNeighbours  shape= (3346175,)  dtype= int32
+  peek: [24 20 26 45 31]
+DATASET: PartType5/NumberOfHeatingEvents  shape= (3346175,)  dtype= int32
+  peek: [2 0 5 0 0]
+DATASET: PartType5/NumberOfMergers  shape= (3346175,)  dtype= int32
+  peek: [0 0 0 0 0]
+DATASET: PartType5/NumberOfRepositions  shape= (3346175,)  dtype= int32
+  peek: [185 121 132  94  30]
+DATASET: PartType5/NumberOfTimeSteps  shape= (3346175,)  dtype= int32
+  peek: [1042  821  726  663  259]
+DATASET: PartType5/ParticleIDs  shape= (3346175,)  dtype= uint64
+  peek: [241029917715 240667682363 241319082795 241536140101 243996515611]
+DATASET: PartType5/Potentials  shape= (3346175,)  dtype= float32
+  peek: [-623616. -696320. -680960. -740352. -564224.]
+DATASET: PartType5/ProgenitorParticleIDs  shape= (3346175,)  dtype= int64
+  peek: [241029917715 240667682363 241319082795 241536140101 243996515611]
+DATASET: PartType5/Rank_bound  shape= (3346175,)  dtype= int64
+  peek: [0 0 0 0 0]
+DATASET: PartType5/SmoothingLengths  shape= (3346175,)  dtype= float32
+  peek: [0.0011425  0.00799561 0.00048161 0.02578735 0.01913452]
+DATASET: PartType5/SpecificPotentialEnergies  shape= (3346175,)  dtype= float32
+  peek: [-7568.0083 -4637.8066 -5784.907  -2114.8557 -4279.781 ]
+DATASET: PartType5/SplitCounts  shape= (3346175,)  dtype= uint8
+  peek: [0 0 0 0 0]
+DATASET: PartType5/SplitTrees  shape= (3346175,)  dtype= int64
+  peek: [0 0 0 0 0]
+DATASET: PartType5/SubgridMasses  shape= (3346175,)  dtype= float32
+  peek: [3.0584633e-06 2.9988587e-06 3.1441450e-06 2.9988587e-06 2.9988587e-06]
+DATASET: PartType5/SwallowedAngularMomenta  shape= (3346175, 3)  dtype= float32
+  peek row0: [[0. 0. 0.]]
+DATASET: PartType5/TotalAccretedMasses  shape= (3346175,)  dtype= float32
+  peek: [5.9255399e-08 1.2263968e-11 1.4249235e-07 8.1534779e-13 1.5876189e-13]
+DATASET: PartType5/Velocities  shape= (3346175, 3)  dtype= float32
+  peek row0: [[307.69366 269.79364 585.29364]]
+GROUP:   PhysicalConstants
+GROUP:   PhysicalConstants/CGS
+GROUP:   PhysicalConstants/InternalUnits
+GROUP:   Policy
+GROUP:   RecordingTriggers
+GROUP:   StarsParticles
+DATASET: StarsParticles/Ages  shape= (1781337782,)  dtype= float32
+  peek: [0.01268005 0.01307678 0.01269531 0.01269531 0.01316833]
+DATASET: StarsParticles/AveragedStarFormationRates  shape= (1781337782, 2)  dtype= float32
+  peek row0: [[0. 0.]]
+DATASET: StarsParticles/BirthDensities  shape= (1781337782,)  dtype= float32
+  peek: [18546688.  3579904. 23789568.  3964928.   894976.]
+DATASET: StarsParticles/BirthScaleFactors  shape= (1781337782,)  dtype= float32
+  peek: [0.18385315 0.14735413 0.18273926 0.18310547 0.13807678]
+DATASET: StarsParticles/BirthTemperatures  shape= (1781337782,)  dtype= float32
+  peek: [7408. 7984. 7224. 7408. 8240.]
+DATASET: StarsParticles/BirthVelocityDispersions  shape= (1781337782,)  dtype= float32
+  peek: [15.46875 27.8125  50.3125  23.375   31.5    ]
+DATASET: StarsParticles/Coordinates  shape= (1781337782, 3)  dtype= float64
+  peek row0: [[ 28.50832448 146.17289548 104.69753148]]
+DATASET: StarsParticles/DensitiesAtLastAGNEvent  shape= (1781337782,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: StarsParticles/DensitiesAtLastSupernovaEvent  shape= (1781337782,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: StarsParticles/ElementMassFractions  shape= (1781337782, 12)  dtype= float32
+  peek row0: [[7.5585938e-01 2.4389648e-01 1.9241497e-11 5.7287508e-14 1.5074875e-10]]
+DATASET: StarsParticles/EnergiesReceivedFromAGNFeedback  shape= (1781337782,)  dtype= float32
+  peek: [0. 0. 0. 0. 0.]
+DATASET: StarsParticles/FOFGroupIDs  shape= (1781337782,)  dtype= int64
+  peek: [14247  1788  1788  1788  1788]
+DATASET: StarsParticles/GroupNr_bound  shape= (1781337782,)  dtype= int64
+  peek: [63675867 22719935 22719935 22721097 22721097]
+DATASET: StarsParticles/HaloCatalogueIndex  shape= (1781337782,)  dtype= int64
+  peek: [63675867 22719935 22719935 22721097 22721097]
+DATASET: StarsParticles/InitialMasses  shape= (1781337782,)  dtype= float32
+  peek: [0.00018096 0.00017905 0.00017571 0.0001781  0.0001688 ]
+DATASET: StarsParticles/IronMassFractionsFromSNIa  shape= (1781337782,)  dtype= float32
+  peek: [1.9884268e-16 5.6896593e-29 1.7298589e-09 6.2137842e-06 0.0000000e+00]
+DATASET: StarsParticles/LastAGNFeedbackScaleFactors  shape= (1781337782,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: StarsParticles/LastEnergiesReceivedFromAGNFeedback  shape= (1781337782,)  dtype= float32
+  peek: [0. 0. 0. 0. 0.]
+DATASET: StarsParticles/LastFOFHaloMasses  shape= (1781337782,)  dtype= float32
+  peek: [0.05285645 0.09851074 0.1262207  0.0925293  0.05102539]
+DATASET: StarsParticles/LastFOFHaloMassesScaleFactors  shape= (1781337782,)  dtype= float32
+  peek: [0.18380737 0.14685059 0.18243408 0.18243408 0.1379242 ]
+DATASET: StarsParticles/LastKineticEarlyFeedbackScaleFactors  shape= (1781337782,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: StarsParticles/LastSNIIKineticFeedbackScaleFactors  shape= (1781337782,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: StarsParticles/LastSNIIKineticFeedbackvkick  shape= (1781337782,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: StarsParticles/LastSNIIThermalFeedbackScaleFactors  shape= (1781337782,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: StarsParticles/LastSNIaThermalFeedbackScaleFactors  shape= (1781337782,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: StarsParticles/Luminosities  shape= (1781337782, 9)  dtype= float32
+  peek row0: [[1542. 4008. 6368. 7840. 8592.]]
+DATASET: StarsParticles/MassFractionsFromAGB  shape= (1781337782,)  dtype= float32
+  peek: [1.7563728e-13 6.9066350e-26 9.6298754e-07 2.9525757e-03 0.0000000e+00]
+DATASET: StarsParticles/MassFractionsFromCEJSN  shape= (1781337782,)  dtype= float32
+  peek: [1.1909283e-18 1.8991826e-28 7.8929918e-16 9.6918029e-12 0.0000000e+00]
+DATASET: StarsParticles/MassFractionsFromCollapsar  shape= (1781337782,)  dtype= float32
+  peek: [1.9015890e-19 2.4824467e-29 8.0339381e-17 6.1639582e-13 0.0000000e+00]
+DATASET: StarsParticles/MassFractionsFromNSM  shape= (1781337782,)  dtype= float32
+  peek: [2.87461806e-20 1.46250305e-33 2.40432674e-15 8.48388026e-12
+ 0.00000000e+00]
+DATASET: StarsParticles/MassFractionsFromSNII  shape= (1781337782,)  dtype= float32
+  peek: [1.2078090e-09 1.3361945e-19 3.7997961e-07 3.1471252e-03 0.0000000e+00]
+DATASET: StarsParticles/MassFractionsFromSNIa  shape= (1781337782,)  dtype= float32
+  peek: [3.2179120e-16 9.2000903e-29 2.7976057e-09 1.0058284e-05 0.0000000e+00]
+DATASET: StarsParticles/Masses  shape= (1781337782,)  dtype= float32
+  peek: [1.07773245e-04 1.05964042e-04 1.04721934e-04 1.06023719e-04
+ 9.99249387e-05]
+DATASET: StarsParticles/MaximalSNIIKineticFeedbackvkick  shape= (1781337782,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: StarsParticles/MaximalTemperatureScaleFactors  shape= (1781337782,)  dtype= float32
+  peek: [0.12010193 0.09302521 0.10625458 0.13850403 0.12197113]
+DATASET: StarsParticles/MaximalTemperatures  shape= (1781337782,)  dtype= float32
+  peek: [12240. 13424. 13312. 15280. 12048.]
+DATASET: StarsParticles/MetalMassFractions  shape= (1781337782,)  dtype= float32
+  peek: [2.3464963e-10 2.2949299e-20 4.8661605e-08 3.1232834e-04 0.0000000e+00]
+DATASET: StarsParticles/MetalMassFractionsFromAGB  shape= (1781337782,)  dtype= float32
+  peek: [1.3270635e-15 5.2222592e-28 9.3859853e-09 3.4809113e-05 0.0000000e+00]
+DATASET: StarsParticles/MetalMassFractionsFromSNII  shape= (1781337782,)  dtype= float32
+  peek: [2.3464963e-10 2.2949299e-20 3.6496203e-08 2.6750565e-04 0.0000000e+00]
+DATASET: StarsParticles/MetalMassFractionsFromSNIa  shape= (1781337782,)  dtype= float32
+  peek: [3.2179120e-16 9.2000903e-29 2.7976057e-09 1.0058284e-05 0.0000000e+00]
+DATASET: StarsParticles/ParticleIDs  shape= (1781337782,)  dtype= uint64
+  peek: [240884029769 240811621201 240883981647 240884017753 240956390231]
+DATASET: StarsParticles/Potentials  shape= (1781337782,)  dtype= float32
+  peek: [-533504. -548864. -547840. -551936. -550912.]
+DATASET: StarsParticles/ProgenitorParticleIDs  shape= (1781337782,)  dtype= int64
+  peek: [0 0 0 0 0]
+DATASET: StarsParticles/Rank_bound  shape= (1781337782,)  dtype= int64
+  peek: [ 25   4 267  45 224]
+DATASET: StarsParticles/SNIIFeedbackEnergyFractions  shape= (1781337782,)  dtype= float32
+  peek: [3.7148438  2.34375    3.7890625  2.3789062  0.84765625]
+DATASET: StarsParticles/SNIaRates  shape= (1781337782,)  dtype= float64
+  peek: [4233.59375    3272.83691406 4260.42578125 3309.18066406 2863.79492188]
+DATASET: StarsParticles/SmoothingLengths  shape= (1781337782,)  dtype= float32
+  peek: [0.07519531 0.0026474  0.0284729  0.03118896 0.03509521]
+DATASET: StarsParticles/SpecificPotentialEnergies  shape= (1781337782,)  dtype= float32
+  peek: [ -724.5049 -2672.4568 -1599.9657 -2362.7676 -1760.7422]
+DATASET: StarsParticles/SplitCounts  shape= (1781337782,)  dtype= uint8
+  peek: [0 0 0 0 0]
+DATASET: StarsParticles/SplitTrees  shape= (1781337782,)  dtype= int64
+  peek: [0 0 0 0 0]
+DATASET: StarsParticles/TemperatureIncreasesAtLastAGNEvent  shape= (1781337782,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: StarsParticles/TemperatureIncreasesAtLastSupernovaEvent  shape= (1781337782,)  dtype= float32
+  peek: [-1. -1. -1. -1. -1.]
+DATASET: StarsParticles/Velocities  shape= (1781337782, 3)  dtype= float32
+  peek row0: [[286.5028  325.30286 523.30286]]
+GROUP:   StarsScheme
+GROUP:   SubgridScheme
+DATASET: SubgridScheme/GrainToElementMapping  shape= (6, 12)  dtype= float32
+  peek row0: [[0. 0. 1. 0. 0.]]
+GROUP:   SubgridScheme/NamedColumns
+DATASET: SubgridScheme/NamedColumns/DustMassFractions  shape= (6,)  dtype= |S32
+  peek: [b'GraphiteLarge' b'MgSilicatesLarge' b'FeSilicatesLarge' b'GraphiteSmall'
+ b'MgSilicatesSmall']
+DATASET: SubgridScheme/NamedColumns/ElementMassFractions  shape= (12,)  dtype= |S32
+  peek: [b'Hydrogen' b'Helium' b'Carbon' b'Nitrogen' b'Oxygen']
+DATASET: SubgridScheme/NamedColumns/ElementMassFractionsDiffuse  shape= (12,)  dtype= |S32
+  peek: [b'Hydrogen' b'Helium' b'Carbon' b'Nitrogen' b'Oxygen']
+DATASET: SubgridScheme/NamedColumns/Luminosities  shape= (9,)  dtype= |S32
+  peek: [b'GAMA_u' b'GAMA_g' b'GAMA_r' b'GAMA_i' b'GAMA_z']
+DATASET: SubgridScheme/NamedColumns/MetalDiffusionRates  shape= (12,)  dtype= |S32
+  peek: [b'Hydrogen' b'Helium' b'Carbon' b'Nitrogen' b'Oxygen']
+DATASET: SubgridScheme/NamedColumns/ReducedElementMassFractions  shape= (2,)  dtype= |S32
+  peek: [b'Hydrogen' b'Helium']
+DATASET: SubgridScheme/NamedColumns/ReducedSpeciesFractions  shape= (4,)  dtype= |S8
+  peek: [b'HI' b'HeI' b'HeII' b'H2']
+DATASET: SubgridScheme/NamedColumns/SpeciesFractions  shape= (10,)  dtype= |S8
+  peek: [b'elec' b'HI' b'HII' b'Hm' b'HeI']
+DATASET: SubgridScheme/NamedColumns/XrayLuminosities  shape= (3,)  dtype= |S32
+  peek: [b'erosita_low' b'erosita_high' b'ROSAT']
+DATASET: SubgridScheme/NamedColumns/XrayPhotonLuminosities  shape= (3,)  dtype= |S32
+  peek: [b'erosita_low' b'erosita_high' b'ROSAT']
+GROUP:   Units
+GROUP:   UnusedParameters

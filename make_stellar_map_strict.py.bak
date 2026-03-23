@@ -1,0 +1,316 @@
+#!/usr/bin/env python3
+"""
+make_stellar_map_strict.py
+
+Strict, memory-safe builder for CSV mapping using ONLY:
+  SOAP fields:
+    ExclusiveSphere/50kpc/StellarMass
+    ExclusiveSphere/50kpc/HalfMassRadiusStars
+  Particle masses: PartType4/Masses (no InitialMasses)
+Uses precomputed NPZ mapping: subhalo_id -> particle indices
+
+Outputs CSV with columns:
+  subhalo_id,
+  stellar_mass_current   (particle-level sum, OUTPUT in 1e10 Msun),
+  stellar_halfmass_radius_kpc  (from SOAP ExclusiveSphere/50kpc/HalfMassRadiusStars),
+  logsigma  = log10(M_star_SOAP_in_Msun) - 1.5 * log10(r_half_kpc)
+
+Features:
+ - Memory-safe SOAP lookup (scans HaloCatalogueIndex in chunks; does not load 90M array)
+ - tqdm writes to stdout so Slurm logs show progress bar in .out
+ - Partial CSV flush every FLUSH_EVERY rows to survive job interruptions
+"""
+from __future__ import annotations
+import os, sys, argparse, math, time
+import numpy as np
+import pandas as pd
+import h5py
+from tqdm import tqdm
+
+# ---------------- USER CONFIG ----------------
+MODEL_DIR = '/mnt/su3-pro/colibre/L0200N3008/THERMAL_AGN'
+SOAP_CATALOGUE_FILE = os.path.join(MODEL_DIR, 'SOAP-HBT', 'halo_properties_0127.hdf5')
+VIRTUAL_SNAPSHOT_FILE = os.path.join(MODEL_DIR, 'SOAP-HBT', 'colibre_with_SOAP_membership_0127.hdf5')
+DEFAULT_MAPPING_NPZ = "/home/mzemsch/COLIBRE-analysis/ucmg_particle_index_mapping.npz"
+SCALE_OUT = 1e10   # convert Msun -> 1e10 Msun for the 'stellar_mass_current' output
+DEFAULT_h = 0.681  # only used if data explicitly says Msun/h (rare here)
+FLUSH_EVERY = 200  # write partial CSV every N halos
+CHUNK_SIZE = 1_000_000  # chunk for scanning HaloCatalogueIndex
+# ------------------------------------------------
+
+def vprint(*a, **k):
+    print(*a, **k, flush=True)
+
+def read_strict_soap_chunked(soap_file: str, subhalo_ids: np.ndarray, h_val=DEFAULT_h, chunk_size: int = CHUNK_SIZE):
+    """
+    Memory-safe: read ONLY ExclusiveSphere/50kpc/StellarMass and
+    ExclusiveSphere/50kpc/HalfMassRadiusStars for the requested subhalo_ids.
+    Scans the SOAP 'HaloCatalogueIndex' dataset in chunks to build a small map.
+    """
+    required_mass_path = "ExclusiveSphere/50kpc/StellarMass"
+    required_rhalf_path = "ExclusiveSphere/50kpc/HalfMassRadiusStars"
+
+    subids_list = [int(s) for s in subhalo_ids]
+    subids_set = set(subids_list)
+    out = {int(s): (float('nan'), float('nan')) for s in subids_list}
+
+    with h5py.File(soap_file, 'r') as f:
+        # strict checks
+        if required_mass_path not in f:
+            raise SystemExit(f"SOAP file missing required dataset: {required_mass_path}")
+        if required_rhalf_path not in f:
+            raise SystemExit(f"SOAP file missing required dataset: {required_rhalf_path}")
+
+        # find canonical index dataset
+        idx_path = None
+        for cand in ('InputHalos/HaloCatalogueIndex', 'HaloCatalogueIndex', 'InputHalos/HaloCatalogue_Index'):
+            if cand in f:
+                idx_path = cand
+                break
+        if idx_path is None:
+            # minimal search fallback
+            for name in f:
+                if 'halocatalogueindex' in name.lower():
+                    idx_path = name
+                    break
+        if idx_path is None:
+            raise SystemExit("SOAP file missing InputHalos/HaloCatalogueIndex (cannot map subhalo_id -> SOAP row).")
+
+        idx_ds = f[idx_path]
+        nrows = int(idx_ds.shape[0])
+
+        # chunk-scan to find mapping only for requested subids
+        sub_to_row = {}
+        start = 0
+        while start < nrows and len(sub_to_row) < len(subids_set):
+            stop = min(nrows, start + chunk_size)
+            chunk = np.array(idx_ds[start:stop], dtype=np.int64)
+            for rel_i, val in enumerate(chunk):
+                sv = int(val)
+                if sv in subids_set and sv not in sub_to_row:
+                    sub_to_row[sv] = start + rel_i
+            start = stop
+
+        # now read required datasets only for found rows
+        m_ds = f[required_mass_path]
+        r_ds = f[required_rhalf_path]
+
+        # minimal unit handling
+        def mass_factor_from_attrs(ds):
+            for key in ('Units','units','unit','UNITS'):
+                if key in ds.attrs:
+                    u = str(ds.attrs[key]).lower()
+                    if '1e10' in u:
+                        factor = 1e10
+                        if 'h' in u:
+                            factor = factor / h_val
+                        vprint(f"[SOAP] detected mass units '{ds.attrs[key]}' -> multiplying by {factor} to get Msun")
+                        return factor
+                    if 'msun/h' in u:
+                        factor = 1.0 / h_val
+                        vprint(f"[SOAP] detected mass units '{ds.attrs[key]}' -> multiplying by {factor} to get Msun (Msun/h)")
+                        return factor
+                    if 'msun' in u:
+                        vprint(f"[SOAP] detected mass units '{ds.attrs[key]}' -> interpreting as Msun")
+                        return 1.0
+            vprint("[SOAP] no mass units attribute found; assuming values are in Msun")
+            return 1.0
+
+        def radius_factor_from_attrs(ds):
+            for key in ('Units','units','unit','UNITS'):
+                if key in ds.attrs:
+                    u = str(ds.attrs[key]).lower()
+                    if 'kpc' in u:
+                        return 1.0
+                    if 'pc' in u:
+                        return 1e-3
+            vprint("[SOAP] no radius units attribute found; assuming values are in kpc")
+            return 1.0
+
+        m_factor = mass_factor_from_attrs(m_ds)
+        r_factor = radius_factor_from_attrs(r_ds)
+
+        for sid in subids_list:
+            rowidx = sub_to_row.get(sid, None)
+            if rowidx is None:
+                out[sid] = (float('nan'), float('nan'))
+                continue
+            try:
+                mval = float(m_ds[rowidx]) * m_factor
+            except Exception:
+                mval = float('nan')
+            try:
+                rval = float(r_ds[rowidx]) * r_factor
+            except Exception:
+                rval = float('nan')
+            out[sid] = (mval, rval)
+
+    return out
+
+def sum_particle_masses_npz(npz_mapping_path: str, mapping: dict, subhalo_ids: np.ndarray, snapshot_h5: str, h_val=DEFAULT_h):
+    """
+    Sum particle-level masses from PartType4/Masses for the indices in mapping.
+    Returns dict subhalo_id -> total_mass_Msun.
+    """
+    results = {}
+    with h5py.File(snapshot_h5, 'r') as f:
+        if 'PartType4' not in f:
+            raise SystemExit("Snapshot missing PartType4 group.")
+        p4 = f['PartType4']
+        # require Masses only
+        if 'Masses' in p4:
+            mass_name = 'Masses'
+        elif 'masses' in p4:
+            mass_name = 'masses'
+        else:
+            raise SystemExit("Snapshot PartType4 missing 'Masses' dataset (required).")
+
+        mass_ds = p4[mass_name]
+
+        # minimal unit handling
+        def mass_factor(ds):
+            for key in ('Units','units','unit','UNITS'):
+                if key in ds.attrs:
+                    u = str(ds.attrs[key]).lower()
+                    if '1e10' in u:
+                        factor = 1e10
+                        if 'h' in u:
+                            factor = factor / h_val
+                        vprint(f"[SNAP] detected particle mass units '{ds.attrs[key]}' -> multiplying by {factor} to get Msun")
+                        return factor
+                    if 'msun/h' in u:
+                        factor = 1.0 / h_val
+                        vprint(f"[SNAP] detected particle mass units '{ds.attrs[key]}' -> multiplying by {factor} to get Msun (Msun/h)")
+                        return factor
+                    if 'msun' in u:
+                        vprint(f"[SNAP] detected particle mass units '{ds.attrs[key]}' -> interpreting as Msun")
+                        return 1.0
+            vprint("[SNAP] no particle mass units attr; assuming values are in Msun")
+            return 1.0
+
+        p_factor = mass_factor(mass_ds)
+
+        # iterate requested subhalos and do fast slices
+        for sid in subhalo_ids:
+            sid = int(sid)
+            idxs = mapping.get(str(sid), None)
+            if idxs is None:
+                idxs = mapping.get(sid, None)
+            if idxs is None:
+                results[sid] = float('nan')
+                continue
+            if len(idxs) == 0:
+                results[sid] = 0.0
+                continue
+            try:
+                vals = np.array(mass_ds[idxs], dtype=float)
+                total = float(np.sum(vals) * p_factor)
+                results[sid] = total
+            except Exception as e:
+                vprint(f"Warning: failed to sum particle masses for subhalo {sid}: {e}")
+                results[sid] = float('nan')
+    return results
+
+def main():
+    parser = argparse.ArgumentParser(description="Strict stellar map: SOAP ExclusiveSphere/50kpc + PartType4/Masses")
+    parser.add_argument('--ucmg', default='ucmg_ids.csv', help='CSV with subhalo_id (or single column)')
+    parser.add_argument('--out', default='stellar_current_map_strict.csv')
+    parser.add_argument('--mapping', default=DEFAULT_MAPPING_NPZ, help='NPZ mapping file (subhalo_id -> indices)')
+    parser.add_argument('--snapshot', default=VIRTUAL_SNAPSHOT_FILE, help='virtual snapshot HDF5 (PartType4)')
+    parser.add_argument('--soap', default=SOAP_CATALOGUE_FILE, help='SOAP catalogue HDF5')
+    parser.add_argument('--no-progress', action='store_true', help='Disable tqdm progress bar')
+    parser.add_argument('--h', type=float, default=DEFAULT_h, help='Hubble h for possible Msun/h conversions')
+    parser.add_argument('--test-subhalo', type=int, default=None, help='Run single-subhalo diagnostic (prints) and exit')
+    args = parser.parse_args()
+
+    # read ids
+    if args.test_subhalo is not None:
+        subids = np.array([int(args.test_subhalo)], dtype=np.int64)
+    else:
+        if not os.path.exists(args.ucmg):
+            raise SystemExit(f"ucmg file not found: {args.ucmg}")
+        df = pd.read_csv(args.ucmg)
+        if 'subhalo_id' in df.columns:
+            subids = np.array(df['subhalo_id'], dtype=np.int64)
+        else:
+            subids = np.array(df.iloc[:,0], dtype=np.int64)
+
+    # load mapping
+    if not os.path.exists(args.mapping):
+        raise SystemExit(f"Mapping NPZ not found: {args.mapping}")
+    npz = np.load(args.mapping, allow_pickle=False)
+    mapping = {}
+    for k in npz.files:
+        try:
+            ik = int(k)
+            mapping[ik] = npz[k].astype(np.int64)
+            mapping[str(ik)] = mapping[ik]
+        except Exception:
+            mapping[k] = npz[k].astype(np.int64)
+
+    vprint("Loaded mapping keys:", len(npz.files))
+
+    # read SOAP (chunked)
+    vprint("Reading SOAP (STRICT fields ExclusiveSphere/50kpc/StellarMass and HalfMassRadiusStars)...")
+    soap_vals = read_strict_soap_chunked(args.soap, subids, h_val=args.h)
+
+    # sum particle masses
+    vprint("Summing particle-level current masses using NPZ mapping and PartType4/Masses (strict)...")
+    particle_sums = sum_particle_masses_npz(args.mapping, mapping, subids, args.snapshot, h_val=args.h)
+
+    # test mode: print and exit
+    if args.test_subhalo is not None:
+        sid = int(args.test_subhalo)
+        M_particle = particle_sums.get(sid, float('nan'))
+        M_soap, rhalf = soap_vals.get(sid, (float('nan'), float('nan')))
+        vprint("Diagnostic (strict) for subhalo:", sid)
+        vprint("  particle_sum (Msun):", M_particle)
+        vprint("  SOAP ExclusiveSphere/50kpc/StellarMass (Msun):", M_soap)
+        vprint("  SOAP ExclusiveSphere/50kpc/HalfMassRadiusStars (kpc):", rhalf)
+        if (np.isfinite(M_soap) and np.isfinite(rhalf) and rhalf>0 and M_soap>0):
+            logsigma = math.log10(float(M_soap)) - 1.5*math.log10(float(rhalf))
+            vprint("  logsigma (SOAP):", logsigma)
+        else:
+            vprint("  logsigma (SOAP):", float('nan'))
+        return
+
+    # assemble and write with progress -> ensure tqdm prints to stdout (Slurm .out)
+    iterator = subids if args.no_progress else tqdm(subids, desc="halos", file=sys.stdout, ncols=100)
+
+    rows = []
+    outfn = args.out
+    written = 0
+    for i, sid in enumerate(iterator, start=1):
+        sid = int(sid)
+        M_particle = particle_sums.get(sid, float('nan'))   # Msun
+        M_particle_out = float(M_particle / SCALE_OUT) if np.isfinite(M_particle) else float('nan')  # in 1e10 Msun
+        M_soap, rhalf = soap_vals.get(sid, (float('nan'), float('nan')))
+        if (not np.isfinite(M_soap)) or (not np.isfinite(rhalf)) or (rhalf <= 0) or (M_soap <= 0):
+            logsigma = float('nan')
+        else:
+            try:
+                logsigma = math.log10(float(M_soap)) - 1.5 * math.log10(float(rhalf))
+            except Exception:
+                logsigma = float('nan')
+        rows.append({
+            'subhalo_id': int(sid),
+            'stellar_mass_current': M_particle_out,
+            'stellar_halfmass_radius_kpc': float(rhalf) if np.isfinite(rhalf) else float('nan'),
+            'logsigma': float(logsigma) if np.isfinite(logsigma) else float('nan')
+        })
+
+        # periodic flush to disk
+        if (i % FLUSH_EVERY) == 0 or i == len(subids):
+            df_out = pd.DataFrame(rows)
+            # write header for first write
+            if written == 0:
+                df_out.to_csv(outfn, index=False)
+            else:
+                df_out.to_csv(outfn, index=False, mode='a', header=False)
+            written += len(rows)
+            rows = []
+
+    vprint(f"Wrote: {outfn} ({written} rows)")
+
+if __name__ == "__main__":
+    main()

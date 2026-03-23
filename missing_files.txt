@@ -1,0 +1,8 @@
+40 60 relicness_40_60.csv
+260 280 relicness_260_280.csv
+400 420 relicness_400_420.csv
+420 440 relicness_420_440.csv
+480 500 relicness_480_500.csv
+1280 1300 relicness_1280_1300.csv
+1500 1520 relicness_1500_1520.csv
+1900 1920 relicness_1900_1920.csv

@@ -1,0 +1,7 @@
+Loaded GalaxyProperties rows: 129850
+Loaded 1450 lookback bins (Gyr)
+SFH file has 129850 lines
+SFH mapping mode: row_match
+Compute-all: processing galaxy indices [68900:70200) -> output sfh_times_53.csv.gz
+Flushed final 1300 rows -> wrote sfh_times_53.csv.gz
+Compute-all done.
