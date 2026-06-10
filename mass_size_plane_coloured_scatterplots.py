@@ -43,14 +43,14 @@ comov_to_physical_length = 1.0 / (1.0 + ztarget)
 
 # ---------- read SOAP/virtual snapshot properties (keeps your original code) -
 fields_sgn = {'InputHalos': ('HaloCatalogueIndex', 'IsCentral', 'HBTplus/DescendantTrackId', 'HBTplus/TrackId')}
-fields = {'ExclusiveSphere/50kpc': ('StellarMass', 'StarFormationRate', 'HalfMassRadiusStars', 'CentreOfMass', 'MassWeightedMeanStellarAge', 'LuminosityWeightedMeanStellarAge')}
+fields = {'ExclusiveSphere/50kpc': ('StellarMass', 'StarFormationRate', 'HalfMassRadiusStars', 'CentreOfMass', 'MassWeightedMeanStellarAge', 'LuminosityWeightedMeanStellarAge', 'StellarMassFractionInMetals')}
 fields_proj = {'ProjectedAperture/50kpc/projz': ('StellarMass', 'HalfMassRadiusStars')}
 
 h5data_groups = common.read_group_data_colibre(model_dir, snap_file, fields)
 h5data_idgroups = common.read_group_data_colibre(model_dir, snap_file, fields_sgn)
 h5data_groups_proj = common.read_group_data_colibre(model_dir, snap_file, fields_proj)
 
-(m30, sfr30, r50, cp, stellarage, stellarage_lum) = h5data_groups
+(m30, sfr30, r50, cp, stellarage, stellarage_lum, Zstar_raw) = h5data_groups
 (m30_proj, r50_proj) = h5data_groups_proj
 (sgn, is_central, desc_id, track_id) = h5data_idgroups
 
@@ -63,6 +63,16 @@ r50_proj = r50_proj * Lu * comov_to_physical_length * 1e3
 stellarage = stellarage * tu / 1e9
 stellarage_lum = stellarage_lum * tu / 1e9
 cp = cp * Lu * comov_to_physical_length
+
+Zsun = 0.0134   # AGSS09 convention
+# Zsun = 0.0139 # Asplund et al. 2021 present-day photospheric value
+    
+Zstar = np.asarray(Zstar_raw, dtype=float)
+with np.errstate(divide="ignore", invalid="ignore"):
+    logZstar = np.where((Zstar > 0) & np.isfinite(Zstar), np.log10(Zstar), np.nan)
+    logZstar_rel = np.where((Zstar > 0) & np.isfinite(Zstar),
+                            np.log10(Zstar / Zsun),
+                            np.nan)
 
 # basic alignment check
 n = len(m30)
@@ -89,6 +99,9 @@ r50_in = r50[select]
 r50_in_proj = r50_proj[select]
 stellarage_in = stellarage[select]
 stellarage_lum_in = stellarage_lum[select]
+Zstar_in = Zstar[select]
+logZstar_in = logZstar[select]
+logZstar_rel_in = logZstar_rel[select]
 x_in = cp[select][:,0]
 y_in = cp[select][:,1]
 z_in = cp[select][:,2]
@@ -102,6 +115,10 @@ if not np.any(mask_positive):
 
 log_m = np.log10(m_in[mask_positive])
 log_r = np.log10(r50_in[mask_positive])
+sfr_plot = sfr_in[mask_positive]
+Zstar_in = Zstar_in[mask_positive]
+logZstar_in = logZstar_in[mask_positive]
+logZstar_rel_in = logZstar_rel_in[mask_positive]
 
 # ---------- load ex-situ fractions from HDF5 and build lookup ---------------
 exsitu_lookup = {}
@@ -181,7 +198,7 @@ plt.figure(figsize=(8,6))
 plt.scatter(log_m, log_r, alpha=0.7, s=10, label=f"Simulated galaxies at z={ztarget}")
 # threshold line
 stellar_masses = np.logspace(9, 12, 100)
-logsigma_ref = 9.9
+logsigma_ref = 9.75
 plt.plot(np.log10(stellar_masses), (2/3)*(np.log10(stellar_masses) - logsigma_ref),
          linestyle='--', color='black', label=fr'Compactness threshold ($\lg{{\Sigma_{{1.5}}}} = {logsigma_ref}$)')
 plt.xlabel(r"lg(Stellar Mass / $M_{\odot}$)")
@@ -465,3 +482,93 @@ print("Saved lum-age coloured mass-size plot:", outpath_lumage)
 # plt.close()
 
 # print("Saved mass-size plot with central/satellite flag:", outpath_lumage)
+
+# Compute sSFR [yr^-1] and take log10
+with np.errstate(divide="ignore", invalid="ignore"):
+    ssfr_plot = np.where(m_in[mask_positive] > 0,
+                          sfr_plot / m_in[mask_positive],
+                          np.nan)
+    log_ssfr_plot = np.where(ssfr_plot > 0,
+                              np.log10(ssfr_plot),
+                              np.nan)
+
+log_ssfr_aligned = log_ssfr_plot.copy() 
+
+# --- impose lower floor instead of masking ---
+SSFR_FLOOR = -12.0
+
+# replace -inf and other non-finite values with floor
+log_ssfr_aligned[~np.isfinite(log_ssfr_aligned)] = SSFR_FLOOR
+
+x_h = log_m[finite_mask]
+y_h = log_r[finite_mask]
+c_h = log_ssfr_aligned[finite_mask]
+
+# ---------- mass-size coloured by ssfr --------------------------
+plt.figure(figsize=(8,6))
+# prepare colour map: use 0..1 range; missing values plotted in light grey
+cmap = plt.get_cmap("viridis")
+# compute reasonable vmin/vmax from finite values if any, else default 0..1
+finite_mask = np.isfinite(log_ssfr_aligned)
+if finite_mask.sum() > 0:
+    vmin = float(np.nanpercentile(log_ssfr_aligned[finite_mask], 1))
+    vmax = float(np.nanpercentile(log_ssfr_aligned[finite_mask], 99))
+    if vmin == vmax:
+        vmin, vmax = 0.0, 1.0
+else:
+    vmin, vmax = 0.0, 1.0
+
+# scatter points with colour; plot missing as grey on top for visibility
+sc = plt.scatter(log_m, log_r, c=log_ssfr_aligned, cmap=cmap, vmin=vmin, vmax=vmax, alpha=0.85, s=18, edgecolors='none')
+# overlay grey markers for missing values so they are visible
+if finite_mask.sum() < len(log_ssfr_aligned):
+    missing_idx = ~finite_mask
+    plt.scatter(log_m[missing_idx], log_r[missing_idx], color=(0.6,0.6,0.6), alpha=0.5, s=10, label='no ssfr data')
+
+plt.plot(np.log10(stellar_masses), (2/3)*(np.log10(stellar_masses) - logsigma_ref),
+         linestyle='--', color='black', label=fr'Compactness threshold ($\lg{{\Sigma_{{1.5}}}} = {logsigma_ref}$)')
+plt.xlabel(r"lg(Stellar Mass / $M_{\odot}$)")
+plt.ylabel(r"lg(Half Mass Radius / kpc)")
+plt.legend(fontsize=8)
+plt.grid(True)
+cbar = plt.colorbar(sc)
+cbar.set_label(r"$\lg(\mathrm{sSFR}\ /\ \mathrm{yr}^{-1})$")
+outpath_ssfr = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_ssfr_scattered.png")
+plt.savefig(outpath_ssfr, dpi=300, bbox_inches='tight')
+plt.close()
+print("Saved ssfr coloured mass-size plot:", outpath_ssfr)
+
+# ---------- mass-size coloured by stellar metallicity --------------------------
+plt.figure(figsize=(8,6))
+# prepare colour map: use 0..1 range; missing values plotted in light grey
+cmap = plt.get_cmap("viridis")
+# compute reasonable vmin/vmax from finite values if any, else default 0..1
+finite_mask = np.isfinite(logZstar_rel_in)
+if finite_mask.sum() > 0:
+    vmin = float(np.nanpercentile(logZstar_rel_in[finite_mask], 1))
+    vmax = float(np.nanpercentile(logZstar_rel_in[finite_mask], 99))
+    if vmin == vmax:
+        vmin, vmax = 0.0, 1.0
+else:
+    vmin, vmax = 0.0, 1.0
+
+# scatter points with colour; plot missing as grey on top for visibility
+sc = plt.scatter(log_m, log_r, c=logZstar_rel_in, cmap=cmap, vmin=vmin, vmax=vmax, alpha=0.85, s=18, edgecolors='none')
+# overlay grey markers for missing values so they are visible
+if finite_mask.sum() < len(logZstar_rel_in):
+    missing_idx = ~finite_mask
+    plt.scatter(log_m[missing_idx], log_r[missing_idx], color=(0.6,0.6,0.6), alpha=0.5, s=10, label='no metallicity data')
+
+plt.plot(np.log10(stellar_masses), (2/3)*(np.log10(stellar_masses) - logsigma_ref),
+         linestyle='--', color='black', label=fr'Compactness threshold ($\lg{{\Sigma_{{1.5}}}} = {logsigma_ref}$)')
+plt.xlabel(r"lg(Stellar Mass / $M_{\odot}$)")
+plt.ylabel(r"lg(Half Mass Radius / kpc)")
+# plt.title("Mass-size relation coloured by luminosity weighted mean stellar age")
+plt.legend(fontsize=8)
+plt.grid(True)
+cbar = plt.colorbar(sc)
+cbar.set_label(r"$\lg[Z_* / Z_\odot]$")
+outpath_zstar = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_logZrel_scattered.png")
+plt.savefig(outpath_zstar, dpi=300, bbox_inches='tight')
+plt.close()
+print("Saved metallicity coloured mass-size plot:", outpath_zstar)

@@ -256,7 +256,23 @@ tu = 3.086e+19/(3.154e+7)  # time unit -> yr
 # ---------- ex-situ HDF5 (change path if needed) -----------------------------
 # The HDF5 is expected to have dataset 'stars' with shape (N,4)
 # and columns: [track_id (int), mass_ex, mass_tot, fraction]
-h5path = '/mnt/su3ctm/kproctor/ForMax/L0200N3008_exsitu_summary.hdf5'
+# h5path = '/mnt/su3ctm/kproctor/ForMax/L0200N3008_exsitu_summary.hdf5'
+
+from pathlib import Path
+
+# automatically find the ex-situ file
+base_dir = Path("/mnt/su3ctm/kproctor/ForMax")
+matches = sorted(base_dir.glob("*exsitu*summary*.hdf5"))
+
+if len(matches) == 0:
+    raise FileNotFoundError(f"No ex-situ HDF5 file found in {base_dir}")
+elif len(matches) == 1:
+    h5path = str(matches[0])
+else:
+    # if there are several, pick the newest one
+    h5path = str(max(matches, key=lambda p: p.stat().st_mtime))
+
+print("Using ex-situ file:", h5path)
 
 # Select z=0 snapshot as before
 snap_file = snap_files[0]
@@ -328,10 +344,10 @@ if os.path.exists(h5path):
         if 'stars' in fh:
             data = np.array(fh['stars'])
             if data.ndim == 2 and data.shape[1] >= 4:
-                track_ids_in_file = data[:, 0].astype(int)
+                halo_ids_in_file = data[:, 0].astype(int) #track_ids_in_file = data[:, 0].astype(int)
                 fractions_in_file = data[:, 3].astype(float)
-                exsitu_lookup = dict(zip(track_ids_in_file.tolist(), fractions_in_file.tolist()))
-                print(f"Loaded {len(track_ids_in_file)} ex-situ entries from {h5path}")
+                exsitu_lookup = dict(zip(halo_ids_in_file.tolist(), fractions_in_file.tolist())) #exsitu_lookup = dict(zip(track_ids_in_file.tolist(), fractions_in_file.tolist()))
+                print(f"Loaded {len(halo_ids_in_file)} ex-situ entries from {h5path}")
             else:
                 print("HDF5 'stars' dataset shape unexpected; will skip ex-situ matching.")
         else:
@@ -341,15 +357,18 @@ else:
     exsitu_lookup = {}
 
 # build ex-situ fraction array aligned with mask_positive
-track_selected = track_id_in[mask_positive]
-exsitu_fracs = np.full(track_selected.shape, np.nan, dtype=float)
-for i, tid in enumerate(track_selected):
-    if int(tid) in exsitu_lookup:
-        exsitu_fracs[i] = float(exsitu_lookup[int(tid)])
+halo_selected = sgn_in[mask_positive].astype(np.int64)   # HaloCatalogueIndex
+exsitu_series = pd.Series(exsitu_lookup, dtype=float)
+exsitu_fracs = exsitu_series.reindex(halo_selected).to_numpy(dtype=float)
+# track_selected = track_id_in[mask_positive]
+# exsitu_fracs = np.full(track_selected.shape, np.nan, dtype=float)
+# for i, tid in enumerate(track_selected):
+#     if int(tid) in exsitu_lookup:
+#         exsitu_fracs[i] = float(exsitu_lookup[int(tid)])
 # report match stats
 n_matched = np.isfinite(exsitu_fracs).sum()
 print(f"Matched ex-situ fraction for {n_matched} / {len(exsitu_fracs)} selected galaxies")
-
+print("exsitu_fracs finite:", np.isfinite(exsitu_fracs).sum(), "out of", len(exsitu_fracs)) #check finiteness of ex-situ data
 # ----- Compute Mg/Fe from full data table ----
 csv_in = "relicness_merged_with_stellar_complete_updated.csv"
 df_all = pd.read_csv(csv_in)
@@ -399,7 +418,7 @@ plt.figure(figsize=(8,6))
 plt.scatter(log_m, log_r, alpha=0.7, s=10, label=f"Simulated galaxies at z={ztarget}")
 # threshold line (Barro)
 stellar_masses = np.logspace(9, 12, 100)
-logsigma_ref = 9.75
+logsigma_ref = 9.72
 plt.plot(np.log10(stellar_masses), (2/3)*(np.log10(stellar_masses) - logsigma_ref),
          linestyle='--', color='black', label=fr'Compactness threshold ($\lg{{\Sigma_{{1.5}}}} = {logsigma_ref}$)')
 plt.xlabel(r"lg(Stellar Mass / $M_{\odot}$)")
@@ -519,7 +538,7 @@ cmap = plt.get_cmap("viridis")
 #                     color=(0.6,0.6,0.6), alpha=0.5, s=10, label='no ex-situ data')
 
 #     cbar = plt.colorbar(im)
-#     cbar.set_label("Ex-situ mass fraction")
+#     cbar.set_label(fr'$f_\text{ex-situ}$')
 
 # # draw compactness threshold (foreground)
 # plt.plot(np.log10(stellar_masses), (2/3)*(np.log10(stellar_masses) - logsigma_ref),
@@ -596,7 +615,7 @@ else:
         yout = pts_grid[idx_inside, 1]
 
         # LOESS parameters — SAME as Mg/Fe
-        frac_loess = 0.10
+        frac_loess = 0.01
         degree = 1
 
         Zflat_inside, _ = loess_2d(
@@ -793,7 +812,7 @@ else:
         yout = pts_grid[idx_inside, 1]
 
         # LOESS parameters - tweak frac if smoothing too strong/weak
-        frac_loess = 0.10
+        frac_loess = 0.01
         # call loess_2d: must accept xout,yout and return (zout, wout)
         Zflat_inside, Wflat = loess_2d(xvals, yvals, zvals, frac=frac_loess, degree=1,
                                        xout=xout, yout=yout)

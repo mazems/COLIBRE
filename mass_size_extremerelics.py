@@ -17,6 +17,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import h5py
+from pathlib import Path
+import cmasher as cmr
 
 # ---- user/project imports ----
 # make sure your PYTHONPATH includes the folder where `common` is located
@@ -28,14 +30,28 @@ RUN_TRACE = False    # set True to run the trace of zero-BH extreme relics acros
 
 CORRECTED_DOR_CSV = "sfh_times_all_with_DoR_variants_corrected.csv.gz"
 OUTDIR = "plots"
-OUTNAME = "mass_size_extremes_compactness9p75.png"
+OUTNAME = "mass_size_extremes_compactness9p72.png"
 OUT_CSV_TRACE = os.path.join(OUTDIR, "extreme_relics_zeroBH_central_status_by_snap.csv")
 
-COMPACTNESS_CUT = 9.75
+COMPACTNESS_CUT = 9.72
 EXTREME_DOR = 0.6
 
 # chunk size for scanning big HDF5 datasets (tune lower if you still get killed)
 CHUNK = 80_000
+
+# automatically find the ex-situ file
+base_dir = Path("/mnt/su3ctm/kproctor/ForMax")
+matches = sorted(base_dir.glob("*exsitu*summary*.hdf5"))
+
+if len(matches) == 0:
+    raise FileNotFoundError(f"No ex-situ HDF5 file found in {base_dir}")
+elif len(matches) == 1:
+    h5path = str(matches[0])
+else:
+    # if there are several, pick the newest one
+    h5path = str(max(matches, key=lambda p: p.stat().st_mtime))
+
+print("Using ex-situ file:", h5path)
 
 # Unit conversions consistent with earlier code
 Lu = 3.086e+24 / (3.086e+24)    # cMpc -> cMpc (kept like your snippet)
@@ -181,6 +197,44 @@ else:
 extreme_mask = np.isfinite(dor_for_each_selected) & (dor_for_each_selected > EXTREME_DOR)
 extreme_mask_sat = extreme_mask & ~is_central
 extreme_mask_cen = extreme_mask & is_central
+relic_mask = extreme_mask & (compactness > COMPACTNESS_CUT)
+sag_mask = extreme_mask & (compactness < COMPACTNESS_CUT)
+# ---------- load ex-situ fractions from HDF5 WITHOUT huge dict ----------
+halo_selected = np.asarray(halo_idx[mask_pos], dtype=np.int64)
+exsitu_fracs = np.full(halo_selected.shape, np.nan, dtype=np.float32)
+
+if os.path.exists(h5path):
+    with h5py.File(h5path, "r") as fh:
+        if "stars" not in fh:
+            print("HDF5 file missing dataset 'stars'; skipping ex-situ matching.")
+        else:
+            dset = fh["stars"]
+            nrows = dset.shape[0]
+
+            chunk = 500_000
+            ids_all = np.empty(nrows, dtype=np.int64)
+            fracs_all = np.empty(nrows, dtype=np.float32)
+
+            for i0 in range(0, nrows, chunk):
+                i1 = min(nrows, i0 + chunk)
+                block = dset[i0:i1, :]
+                ids_all[i0:i1] = block[:, 0].astype(np.int64, copy=False)
+                fracs_all[i0:i1] = block[:, 3].astype(np.float32, copy=False)
+
+            order = np.argsort(ids_all)
+            ids_s = ids_all[order]
+            fracs_s = fracs_all[order]
+
+            pos = np.searchsorted(ids_s, halo_selected)
+            ok = (pos < ids_s.size) & (ids_s[pos] == halo_selected)
+            exsitu_fracs[ok] = fracs_s[pos[ok]]
+
+            print(f"Loaded+matched ex-situ in vectorised mode: {ok.sum()} / {halo_selected.size}")
+else:
+    print("Ex-situ HDF5 not found at:", h5path)
+# report match stats
+n_matched = np.isfinite(exsitu_fracs).sum()
+print(f"Matched ex-situ fraction for {n_matched} / {len(exsitu_fracs)} selected galaxies")
 
 # ---------------- PLOTTING (z=0 mass-size) ----------------
 if RUN_PLOT:
@@ -189,6 +243,8 @@ if RUN_PLOT:
 
     plt.rcParams.update({"font.size": 12, "figure.figsize": (8,6)})
     fig, ax = plt.subplots()
+    
+    cmap = 'viridis' #cmr.iceburn
 
     # background: all selected galaxies (light grey)
     ax.scatter(logM, logR, s=8, color="lightgrey", alpha=0.6, label="simulated galaxies at z=0")
@@ -199,22 +255,42 @@ if RUN_PLOT:
     ax.plot(xm, compact_line, linestyle="--", color="black", lw=2,
             label=fr"compactness: $\Sigma_{{1.5}} = {COMPACTNESS_CUT}$")
 
-    # highlight extremes: big orange stars
-    if np.any(extreme_mask_cen):
-        ax.scatter(logM[extreme_mask_cen], logR[extreme_mask_cen],
-                   facecolor='C1', edgecolor='k', s=140, marker='*', linewidth=0.6,
-                   zorder=110, label=f"extreme central relics (DoR > {EXTREME_DOR})")
-        print(f"Plotted {int(np.sum(extreme_mask_cen))} extreme central relics (DoR > {EXTREME_DOR}).")
-    else:
-        print(f"No extreme relics found with DoR > {EXTREME_DOR}.")
+    # # highlight extremes: big orange stars
+    # if np.any(extreme_mask_cen):
+    #     ax.scatter(logM[extreme_mask_cen], logR[extreme_mask_cen],
+    #                facecolor='C1', edgecolor='k', s=140, marker='*', linewidth=0.6,
+    #                zorder=110, label=f"extreme central relics (DoR > {EXTREME_DOR})")
+    #     print(f"Plotted {int(np.sum(extreme_mask_cen))} extreme central relics (DoR > {EXTREME_DOR}).")
+    # else:
+    #     print(f"No extreme relics found with DoR > {EXTREME_DOR}.")
     
-    if np.any(extreme_mask_sat):
-        ax.scatter(logM[extreme_mask_sat], logR[extreme_mask_sat],
-                   facecolor='C2', edgecolor='k', s=140, marker='*', linewidth=0.6,
-                   zorder=110, label=f"extreme satellite relics (DoR > {EXTREME_DOR})")
-        print(f"Plotted {int(np.sum(extreme_mask_sat))} extreme satellite relics (DoR > {EXTREME_DOR}).")
+    # if np.any(extreme_mask_sat):
+    #     ax.scatter(logM[extreme_mask_sat], logR[extreme_mask_sat],
+    #                facecolor='C2', edgecolor='k', s=140, marker='*', linewidth=0.6,
+    #                zorder=110, label=f"extreme satellite relics (DoR > {EXTREME_DOR})")
+    #     print(f"Plotted {int(np.sum(extreme_mask_sat))} extreme satellite relics (DoR > {EXTREME_DOR}).")
+    # else:
+    #     print(f"No extreme relics found with DoR > {EXTREME_DOR}.")
+
+    # highlight them by ex-situ mass
+    if np.any(sag_mask):
+        sc = ax.scatter(logM[sag_mask], logR[sag_mask],
+                   s=15, marker='d', c=exsitu_fracs[sag_mask], cmap=cmap,
+                   zorder=110, label=f"simulated ancients (DoR > {EXTREME_DOR})")
+        cbar = plt.colorbar(sc)
+        cbar.set_label("Ex-situ mass fraction")
+        print(f"Plotted {int(np.sum(extreme_mask))} extreme central relics (DoR > {EXTREME_DOR}).")
     else:
-        print(f"No extreme relics found with DoR > {EXTREME_DOR}.")
+        print(f"No ancients found with DoR > {EXTREME_DOR}.")
+
+    # highlight relics
+    if np.any(relic_mask):
+        sc = ax.scatter(logM[relic_mask], logR[relic_mask],
+                   s=30, marker='*', c=exsitu_fracs[relic_mask], cmap=cmap,
+                   zorder=110, label=fr"simulated relics (DoR > {EXTREME_DOR}, $\Sigma_{{1.5}} = {COMPACTNESS_CUT}$)")
+        print(f"Plotted {int(np.sum(extreme_mask))} extreme central relics (DoR > {EXTREME_DOR}).")
+    else:
+        print(f"No relics found with DoR > {EXTREME_DOR}.")
 
     ax.set_xlabel(r"$\log_{10}(M_\star / M_\odot)$")
     ax.set_ylabel(r"$\log_{10}(R_{1/2} / \mathrm{kpc})$")

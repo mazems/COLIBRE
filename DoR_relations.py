@@ -26,7 +26,7 @@ plt.rcParams.update({
 })
 
 # ------------------------ CONFIG ------------------------
-csv_in = "sfh_times_all_with_DoR_variants.csv.gz"  # CSV with DoR information, for only UCMGs use "plots_dor/relicness_merged_allabove9p9_with_DoR_variants.csv" 
+csv_in = "sfh_times_all_with_DoR_variants_corrected.csv.gz"  # CSV with DoR information, for only UCMGs use "plots_dor/relicness_merged_allabove9p9_with_DoR_variants.csv" 
 exsitu_h5 = "/mnt/su3ctm/kproctor/ForMax/L0200N3008_exsitu_summary.hdf5"  # ex-situ summary (optional)
 model_name = 'L0200N3008/THERMAL_AGN/'
 model_dir  = '/mnt/su3-pro/colibre/' + model_name
@@ -37,9 +37,9 @@ comov_to_physical_length = 1.0 / (1.0 + ztarget)
 outdir = "plots_dor"
 os.makedirs(outdir, exist_ok=True)
 
-COMPACTNESS_CUT = 9.8
-EXTREME_DOR = 0.7
-dor_column_candidates = ["DoR_t998"] #, "dor", "DoR_choice", "DoR_csv"]
+COMPACTNESS_CUT = 9.72
+EXTREME_DOR = 0.6
+dor_column_candidates = ["DoR_t95"] #, "dor", "DoR_choice", "DoR_csv"]
 
 # ------------------------ READ CSV (DoR lookup) ------------------------
 if not os.path.exists(csv_in):
@@ -510,30 +510,98 @@ def plot_dor_vs_quantity(x, y, xlabel, fname):
     save_fig(fig, fname)
 
 # ------------------------ PLOTS ------------------------
-# mass-size plane: all SOAP-selected (grey) and UCMGs (DoR)
-fig, ax = plt.subplots(figsize=(7,6))
-ax.scatter(logM, logR, s=6, color="lightgrey", alpha=0.5, label=r"all galaxies at $z=0$")
-sc = ax.scatter(m_logM, m_logR, c=matched_dor, cmap="viridis", s=18, edgecolors="none", label="UCMGs")
-cbar = fig.colorbar(sc, ax=ax)
-cbar.set_label("DoR")
-xm = np.linspace(np.nanmin(logM)-0.1, np.nanmax(logM)+0.1, 400)
+# # mass-size plane: all SOAP-selected (grey) and UCMGs (DoR)
+# fig, ax = plt.subplots(figsize=(7,6))
+# ax.scatter(logM, logR, s=6, color="lightgrey", alpha=0.5, label=r"all galaxies at $z=0$")
+# sc = ax.scatter(m_logM, m_logR, c=matched_dor, cmap="viridis", s=18, edgecolors="none", label="UCMGs")
+# cbar = fig.colorbar(sc, ax=ax)
+# cbar.set_label("DoR")
+# xm = np.linspace(np.nanmin(logM)-0.1, np.nanmax(logM)+0.1, 400)
+# yr = (xm - COMPACTNESS_CUT) / 1.5
+# ax.plot(xm, yr, "--", color="black", lw=2, label=f"$\lg \Sigma_{{1.5}} = {COMPACTNESS_CUT}$")
+# ax.set_xlabel("lg(Total Stellar Mass / M⊙)")
+# ax.set_ylabel("lg(Half Mass Radius / kpc)")
+# ax.legend()
+# ax.grid(True)
+# save_fig(fig, "mass_size_DoR.png")
+
+# mass-size plane colourec by DoR, same style as other plots
+fig = plt.figure(figsize=(8, 6))
+
+# prepare colour map: use percentile range like in the metallicity plot
+cmap = plt.get_cmap("viridis")
+
+finite_mask = np.isfinite(matched_dor)
+if finite_mask.sum() > 0:
+    vmin = float(np.nanpercentile(matched_dor[finite_mask], 1))
+    vmax = float(np.nanpercentile(matched_dor[finite_mask], 99))
+    if vmin == vmax:
+        vmin, vmax = 0.0, 1.0
+else:
+    vmin, vmax = 0.0, 1.0
+
+# coloured matched galaxies
+sc = plt.scatter(
+    m_logM,
+    m_logR,
+    c=matched_dor,
+    cmap=cmap,
+    vmin=vmin,
+    vmax=vmax,
+    alpha=0.7,
+    s=12,
+    edgecolors="none"
+)
+
+# overlay grey markers for missing DoR values
+if finite_mask.sum() < len(matched_dor):
+    missing_idx = ~finite_mask
+    plt.scatter(
+        m_logM[missing_idx],
+        m_logR[missing_idx],
+        color=(0.6, 0.6, 0.6),
+        alpha=0.7,
+        s=10,
+        label="no DoR data"
+    )
+
+# background population
+# plt.scatter(logM, logR, s=6, color="lightgrey", alpha=0.5)
+
+# compactness threshold line, same style as the metallicity plot
+xm = np.linspace(np.nanmin(logM) - 0.1, np.nanmax(logM) + 0.1, 400)
 yr = (xm - COMPACTNESS_CUT) / 1.5
-ax.plot(xm, yr, "--", color="black", lw=2, label=f"$\lg \Sigma_{{1.5}} = {COMPACTNESS_CUT}$")
-ax.set_xlabel("lg(Total Stellar Mass / M⊙)")
-ax.set_ylabel("lg(Half Mass Radius / kpc)")
-ax.legend()
-ax.grid(True)
-save_fig(fig, "mass_size_DoR.png")
+plt.plot(
+    xm,
+    yr,
+    linestyle="--",
+    color="black",
+    label=fr"Compactness threshold ($\lg{{\Sigma_{{1.5}}}} = {COMPACTNESS_CUT}$)"
+)
 
-# DoR vs compactness, Mg/Fe, age, log sSFR, ex-situ
-plot_dor_vs_quantity(m_compactness, matched_dor, "Compactness (logM - 1.5 logR)", "DoR_vs_compactness.png")
-plot_dor_vs_quantity(m_mgfe, matched_dor, "[Mg/Fe] (dex, SOAP-derived)", "DoR_vs_MgFe.png")
-plot_dor_vs_quantity(m_age, matched_dor, "Lum-weighted age (Gyr, SOAP)", "DoR_vs_age.png")
-plot_dor_vs_quantity(m_log_ssfr, matched_dor, "lg(sSFR / yr⁻¹) (SOAP)", "DoR_vs_sSFR.png")
-# ex-situ vs DoR (only where ex-situ present)
-plot_dor_vs_quantity(matched_exsitu, matched_dor, "Ex-situ mass fraction", "DoR_vs_exsitu.png")
+plt.xlabel(r"lg(Stellar Mass / $M_{\odot}$)")
+plt.ylabel(r"lg(Half Mass Radius / kpc)")
+plt.legend(fontsize=8)
+plt.grid(True)
 
-print("Done. Plots and diagnostics in:", outdir)
+cbar = plt.colorbar(sc)
+cbar.set_label("DoR")
+
+outpath = os.path.join(outdir, "mass_size_DoR.png")
+plt.savefig(outpath, dpi=300, bbox_inches="tight")
+plt.close()
+
+print("Saved DoR-coloured mass-size plot:", outpath)
+
+# # DoR vs compactness, Mg/Fe, age, log sSFR, ex-situ
+# plot_dor_vs_quantity(m_compactness, matched_dor, "Compactness (logM - 1.5 logR)", "DoR_vs_compactness.png")
+# plot_dor_vs_quantity(m_mgfe, matched_dor, "[Mg/Fe] (dex, SOAP-derived)", "DoR_vs_MgFe.png")
+# plot_dor_vs_quantity(m_age, matched_dor, "Lum-weighted age (Gyr, SOAP)", "DoR_vs_age.png")
+# plot_dor_vs_quantity(m_log_ssfr, matched_dor, "lg(sSFR / yr⁻¹) (SOAP)", "DoR_vs_sSFR.png")
+# # ex-situ vs DoR (only where ex-situ present)
+# plot_dor_vs_quantity(matched_exsitu, matched_dor, "Ex-situ mass fraction", "DoR_vs_exsitu.png")
+
+# print("Done. Plots and diagnostics in:", outdir)
 
 # ---- LOESS helpers (copy from full MgFe working script) ----
 def polyfit_2d(x, y, z, degree=1, weights=None):
@@ -709,7 +777,7 @@ else:
     idx_inside = np.nonzero(inside_mask)[0]
 
     # overlay all SOAP-selected lightgrey background for context
-    ax.scatter(logM, logR, s=6, color="lightgrey", alpha=0.5, label="all SOAP-selected galaxies")
+    ax.scatter(logM, logR, s=6, color="lightgrey", alpha=0.5)
 
     if idx_inside.size > 0:
         xout = pts_grid[idx_inside, 0]
@@ -743,7 +811,7 @@ else:
         cmap = plt.get_cmap("viridis")
         im = ax.pcolormesh(Xg, Yg, Zmask, shading='auto', cmap=cmap, vmin=vmin, vmax=vmax)
         cbar = fig.colorbar(im, ax=ax)
-        cbar.set_label("DoR (LOESS)")
+        cbar.set_label("DoR")
         # faint markers showing evaluated LOESS points (optional)
         ax.scatter(xout, yout, s=1, c='k', alpha=0.03, linewidths=0)
     else:
@@ -758,11 +826,11 @@ else:
 # compactness threshold line
 xm = np.linspace(np.nanmin(logM)-0.1, np.nanmax(logM)+0.1, 400)
 yr = (xm - COMPACTNESS_CUT) / 1.5
-ax.plot(xm, yr, "--", color="black", lw=2, label=f"compactness = {COMPACTNESS_CUT}")
+ax.plot(xm, yr, "--", color="black", lw=2, label=fr'Compactness threshold ($\lg\Sigma_{{1.5}} = {COMPACTNESS_CUT}$)')
 
 ax.set_xlabel("lg(Stellar Mass / M⊙)")
 ax.set_ylabel("lg(Half Mass Radius / kpc)")
-ax.set_title(f"Mass–size plane coloured by DoR (LOESS) z={ztarget}")
+# ax.set_title(f"Mass–size plane coloured by DoR (LOESS) z={ztarget}")
 ax.legend(fontsize=8)
 ax.grid(True)
 
@@ -772,166 +840,166 @@ plt.close(fig)
 print("Saved LOESS DoR mass-size:", outpath_loess)
 
 
-# ------------------------ BINNED BY STELLAR MASS (0.2 dex) ------------------------
-# Create 0.2 dex bins in stellar mass (log10(M⋆))
-bin_width = 0.2
-min_mass = np.nanmin(m_logM) if np.isfinite(np.nanmin(m_logM)) else 9.0
-max_mass = np.nanmax(m_logM) if np.isfinite(np.nanmax(m_logM)) else 12.5
+# # ------------------------ BINNED BY STELLAR MASS (0.2 dex) ------------------------
+# # Create 0.2 dex bins in stellar mass (log10(M⋆))
+# bin_width = 0.2
+# min_mass = np.nanmin(m_logM) if np.isfinite(np.nanmin(m_logM)) else 9.0
+# max_mass = np.nanmax(m_logM) if np.isfinite(np.nanmax(m_logM)) else 12.5
 
-# floor/ceil so bins align nicely
-bin_start = math.floor(min_mass / bin_width) * bin_width
-bin_end = math.ceil(max_mass / bin_width) * bin_width
-bins = np.arange(bin_start, bin_end + 1e-9, bin_width)  # edges
-nbins = len(bins) - 1
+# # floor/ceil so bins align nicely
+# bin_start = math.floor(min_mass / bin_width) * bin_width
+# bin_end = math.ceil(max_mass / bin_width) * bin_width
+# bins = np.arange(bin_start, bin_end + 1e-9, bin_width)  # edges
+# nbins = len(bins) - 1
 
-print(f"Creating {nbins} mass bins from {bin_start:.2f} to {bin_end:.2f} (width={bin_width} dex)")
+# print(f"Creating {nbins} mass bins from {bin_start:.2f} to {bin_end:.2f} (width={bin_width} dex)")
 
-# Prepare arrays aligned to matched UCMGs
-# m_logM, m_logR, m_compactness, m_mgfe, m_age, m_log_ssfr, matched_exsitu, matched_dor already exist
-# matched_subids gives subhalo ids for matched entries
+# # Prepare arrays aligned to matched UCMGs
+# # m_logM, m_logR, m_compactness, m_mgfe, m_age, m_log_ssfr, matched_exsitu, matched_dor already exist
+# # matched_subids gives subhalo ids for matched entries
 
-# create a folder for bin-specific plots
-bin_outdir = os.path.join(outdir, "by_mass_bin")
-os.makedirs(bin_outdir, exist_ok=True)
+# # create a folder for bin-specific plots
+# bin_outdir = os.path.join(outdir, "by_mass_bin")
+# os.makedirs(bin_outdir, exist_ok=True)
 
-# # threshold for 'extreme relics'
-# EXTREME_DOR = 0.7
+# # # threshold for 'extreme relics'
+# # EXTREME_DOR = 0.7
 
-# we'll store summary statistics (median DoR per mass bin)
-bin_centers = []
-bin_med = []
-bin_p16 = []
-bin_p84 = []
-bin_counts = []
-bin_extreme_counts = []   # N(DoR > EXTREME_DOR) per mass bin
-bin_extreme_frac = []     # fraction of bin that is extreme
+# # we'll store summary statistics (median DoR per mass bin)
+# bin_centers = []
+# bin_med = []
+# bin_p16 = []
+# bin_p84 = []
+# bin_counts = []
+# bin_extreme_counts = []   # N(DoR > EXTREME_DOR) per mass bin
+# bin_extreme_frac = []     # fraction of bin that is extreme
 
-for ib in range(nbins):
-    lo = bins[ib]
-    hi = bins[ib+1]
-    sel = (m_logM >= lo) & (m_logM < hi) & np.isfinite(matched_dor)
-    count = int(np.sum(sel))
+# for ib in range(nbins):
+#     lo = bins[ib]
+#     hi = bins[ib+1]
+#     sel = (m_logM >= lo) & (m_logM < hi) & np.isfinite(matched_dor)
+#     count = int(np.sum(sel))
 
-    if count == 0:
-        print(f"Bin {ib:02d} [{lo:.2f},{hi:.2f}): empty -> skipping")
-        continue
+#     if count == 0:
+#         print(f"Bin {ib:02d} [{lo:.2f},{hi:.2f}): empty -> skipping")
+#         continue
 
-    # record summary stats
-    dor_sel = matched_dor[sel]
-    med = float(np.nanmedian(dor_sel))
-    p16 = float(np.nanpercentile(dor_sel, 16))
-    p84 = float(np.nanpercentile(dor_sel, 84))
-    center = 0.5 * (lo + hi)
-    bin_centers.append(center)
-    bin_med.append(med)
-    bin_p16.append(p16)
-    bin_p84.append(p84)
-    bin_counts.append(count)
+#     # record summary stats
+#     dor_sel = matched_dor[sel]
+#     med = float(np.nanmedian(dor_sel))
+#     p16 = float(np.nanpercentile(dor_sel, 16))
+#     p84 = float(np.nanpercentile(dor_sel, 84))
+#     center = 0.5 * (lo + hi)
+#     bin_centers.append(center)
+#     bin_med.append(med)
+#     bin_p16.append(p16)
+#     bin_p84.append(p84)
+#     bin_counts.append(count)
 
-    # count extreme relics in this bin
-    extreme_count = int(np.sum(dor_sel > EXTREME_DOR))
-    extreme_frac = extreme_count / float(count) if count > 0 else 0.0
-    bin_extreme_counts.append(extreme_count)
-    bin_extreme_frac.append(extreme_frac)
+#     # count extreme relics in this bin
+#     extreme_count = int(np.sum(dor_sel > EXTREME_DOR))
+#     extreme_frac = extreme_count / float(count) if count > 0 else 0.0
+#     bin_extreme_counts.append(extreme_count)
+#     bin_extreme_frac.append(extreme_frac)
 
-    print(f"Bin {ib:02d} [{lo:.2f},{hi:.2f}) count={count} median_DoR={med:.3f}")
+#     print(f"Bin {ib:02d} [{lo:.2f},{hi:.2f}) count={count} median_DoR={med:.3f}")
 
-    # make a safe label suffix for filenames
-    suf = f"mass_{lo:.2f}_{hi:.2f}".replace(".", "p").replace("-", "m")
+#     # make a safe label suffix for filenames
+#     suf = f"mass_{lo:.2f}_{hi:.2f}".replace(".", "p").replace("-", "m")
 
-    # 1) mass-size plane for this bin: UCMGs in the bin coloured by DoR, background all SOAP-selected
-    fig, ax = plt.subplots(figsize=(7,6))
-    ax.scatter(logM, logR, s=6, color="lightgrey", alpha=0.5, label="all SOAP-selected galaxies")
-    # plot all matched UCMGs in grey for context
-    ax.scatter(m_logM, m_logR, s=6, color="lightgrey", alpha=0.6)
-    sc = ax.scatter(m_logM[sel], m_logR[sel], c=matched_dor[sel], cmap="viridis", s=24, edgecolors="none")
-    cbar = fig.colorbar(sc, ax=ax)
-    cbar.set_label("DoR")
-    xm = np.linspace(np.nanmin(logM)-0.1, np.nanmax(logM)+0.1, 400)
-    yr = (xm - COMPACTNESS_CUT) / 1.5
-    ax.plot(xm, yr, "--", color="black", lw=2, label=f"compactness = {COMPACTNESS_CUT}")
-    ax.set_xlabel("lg(Total Stellar Mass / M⊙)")
-    ax.set_ylabel("lg(Half Mass Radius / kpc)")
-    ax.set_title(f"Mass-size (DoR) — mass bin [{lo:.2f},{hi:.2f})")
-    ax.legend(fontsize=8)
-    ax.grid(True)
-    fname = os.path.join(bin_outdir, f"mass_size_DoR_bin_{suf}.png")
-    fig.savefig(fname, dpi=200, bbox_inches="tight")
-    plt.close(fig)
-    print("  Saved:", fname)
+#     # 1) mass-size plane for this bin: UCMGs in the bin coloured by DoR, background all SOAP-selected
+#     fig, ax = plt.subplots(figsize=(7,6))
+#     ax.scatter(logM, logR, s=6, color="lightgrey", alpha=0.5, label="all SOAP-selected galaxies")
+#     # plot all matched UCMGs in grey for context
+#     ax.scatter(m_logM, m_logR, s=6, color="lightgrey", alpha=0.6)
+#     sc = ax.scatter(m_logM[sel], m_logR[sel], c=matched_dor[sel], cmap="viridis", s=24, edgecolors="none")
+#     cbar = fig.colorbar(sc, ax=ax)
+#     cbar.set_label("DoR")
+#     xm = np.linspace(np.nanmin(logM)-0.1, np.nanmax(logM)+0.1, 400)
+#     yr = (xm - COMPACTNESS_CUT) / 1.5
+#     ax.plot(xm, yr, "--", color="black", lw=2, label=f"compactness = {COMPACTNESS_CUT}")
+#     ax.set_xlabel("lg(Total Stellar Mass / M⊙)")
+#     ax.set_ylabel("lg(Half Mass Radius / kpc)")
+#     ax.set_title(f"Mass-size (DoR) — mass bin [{lo:.2f},{hi:.2f})")
+#     ax.legend(fontsize=8)
+#     ax.grid(True)
+#     fname = os.path.join(bin_outdir, f"mass_size_DoR_bin_{suf}.png")
+#     fig.savefig(fname, dpi=200, bbox_inches="tight")
+#     plt.close(fig)
+#     print("  Saved:", fname)
 
-    # 2) For each quantity, call your existing helper but restricted to this bin
-    # We'll reuse plot_dor_vs_quantity but pass subset arrays. Filenames include bin suffix.
-    # Compactness
-    plot_dor_vs_quantity(m_compactness[sel], matched_dor[sel],
-                         f"Compactness (logM - 1.5 logR)  [{lo:.2f},{hi:.2f})",
-                         f"DoR_vs_compactness_bin_{suf}.png")
-    # Mg/Fe
-    plot_dor_vs_quantity(m_mgfe[sel], matched_dor[sel],
-                         f"[Mg/Fe] (dex, SOAP-derived)  [{lo:.2f},{hi:.2f})",
-                         f"DoR_vs_MgFe_bin_{suf}.png")
-    # Lum-weighted age
-    plot_dor_vs_quantity(m_age[sel], matched_dor[sel],
-                         f"Lum-weighted age (Gyr, SOAP)  [{lo:.2f},{hi:.2f})",
-                         f"DoR_vs_age_bin_{suf}.png")
-    # log sSFR
-    plot_dor_vs_quantity(m_log_ssfr[sel], matched_dor[sel],
-                         f"lg(sSFR / yr⁻¹) (SOAP)  [{lo:.2f},{hi:.2f})",
-                         f"DoR_vs_sSFR_bin_{suf}.png")
-    # ex-situ
-    plot_dor_vs_quantity(matched_exsitu[sel], matched_dor[sel],
-                         f"Ex-situ mass fraction  [{lo:.2f},{hi:.2f})",
-                         f"DoR_vs_exsitu_bin_{suf}.png")
+#     # 2) For each quantity, call your existing helper but restricted to this bin
+#     # We'll reuse plot_dor_vs_quantity but pass subset arrays. Filenames include bin suffix.
+#     # Compactness
+#     plot_dor_vs_quantity(m_compactness[sel], matched_dor[sel],
+#                          f"Compactness (logM - 1.5 logR)  [{lo:.2f},{hi:.2f})",
+#                          f"DoR_vs_compactness_bin_{suf}.png")
+#     # Mg/Fe
+#     plot_dor_vs_quantity(m_mgfe[sel], matched_dor[sel],
+#                          f"[Mg/Fe] (dex, SOAP-derived)  [{lo:.2f},{hi:.2f})",
+#                          f"DoR_vs_MgFe_bin_{suf}.png")
+#     # Lum-weighted age
+#     plot_dor_vs_quantity(m_age[sel], matched_dor[sel],
+#                          f"Lum-weighted age (Gyr, SOAP)  [{lo:.2f},{hi:.2f})",
+#                          f"DoR_vs_age_bin_{suf}.png")
+#     # log sSFR
+#     plot_dor_vs_quantity(m_log_ssfr[sel], matched_dor[sel],
+#                          f"lg(sSFR / yr⁻¹) (SOAP)  [{lo:.2f},{hi:.2f})",
+#                          f"DoR_vs_sSFR_bin_{suf}.png")
+#     # ex-situ
+#     plot_dor_vs_quantity(matched_exsitu[sel], matched_dor[sel],
+#                          f"Ex-situ mass fraction  [{lo:.2f},{hi:.2f})",
+#                          f"DoR_vs_exsitu_bin_{suf}.png")
 
-# After looping, produce a summary plot: median DoR vs mass bin center (with 16/84)
-if len(bin_centers) > 0:
-    bin_centers = np.array(bin_centers)
-    bin_med = np.array(bin_med)
-    bin_p16 = np.array(bin_p16)
-    bin_p84 = np.array(bin_p84)
-    bin_counts = np.array(bin_counts)
-    bin_extreme_counts = np.array(bin_extreme_counts)
-    bin_extreme_frac = np.array(bin_extreme_frac)
+# # After looping, produce a summary plot: median DoR vs mass bin center (with 16/84)
+# if len(bin_centers) > 0:
+#     bin_centers = np.array(bin_centers)
+#     bin_med = np.array(bin_med)
+#     bin_p16 = np.array(bin_p16)
+#     bin_p84 = np.array(bin_p84)
+#     bin_counts = np.array(bin_counts)
+#     bin_extreme_counts = np.array(bin_extreme_counts)
+#     bin_extreme_frac = np.array(bin_extreme_frac)
 
-    fig, ax = plt.subplots(figsize=(8,5))
+#     fig, ax = plt.subplots(figsize=(8,5))
 
-    # Left axis: median DoR with 16/84
-    ax.errorbar(bin_centers, bin_med, yerr=[bin_med - bin_p16, bin_p84 - bin_med],
-                fmt='o-', capsize=3, lw=1.5, label='center of mass bin')
-    ax.set_xlabel("lg(Stellar Mass / M⊙)")
-    ax.set_ylabel("Median DoR")
-    ax.set_ylim(-0.05, 1.05)
-    ax.grid(True)
+#     # Left axis: median DoR with 16/84
+#     ax.errorbar(bin_centers, bin_med, yerr=[bin_med - bin_p16, bin_p84 - bin_med],
+#                 fmt='o-', capsize=3, lw=1.5, label='center of mass bin')
+#     ax.set_xlabel("lg(Stellar Mass / M⊙)")
+#     ax.set_ylabel("Median DoR")
+#     ax.set_ylim(-0.05, 1.05)
+#     ax.grid(True)
 
-    # annotate median counts above points (optional)
-    for x, y, cnt in zip(bin_centers, bin_med, bin_counts):
-        ax.text(x, y + 0.04, f"{int(cnt)}", ha='center', fontsize=8, alpha=0.7)
+#     # annotate median counts above points (optional)
+#     for x, y, cnt in zip(bin_centers, bin_med, bin_counts):
+#         ax.text(x, y + 0.04, f"{int(cnt)}", ha='center', fontsize=8, alpha=0.7)
 
-    # Right axis: extreme relics count (DoR > EXTREME_DOR)
-    ax2 = ax.twinx()
-    ax2.plot(bin_centers, bin_extreme_counts, 's--', ms=6, color='C1', label=f'DoR > {EXTREME_DOR}')
-    ax2.set_ylabel(f'Number of extreme relics')
-    # optionally set sensible ylim for counts
-    maxcnt = int(np.nanmax(bin_extreme_counts)) if bin_extreme_counts.size > 0 else 1
-    ax2.set_ylim(0, max(3, maxcnt * 1.15))
+#     # Right axis: extreme relics count (DoR > EXTREME_DOR)
+#     ax2 = ax.twinx()
+#     ax2.plot(bin_centers, bin_extreme_counts, 's--', ms=6, color='C1', label=f'DoR > {EXTREME_DOR}')
+#     ax2.set_ylabel(f'Number of extreme relics')
+#     # optionally set sensible ylim for counts
+#     maxcnt = int(np.nanmax(bin_extreme_counts)) if bin_extreme_counts.size > 0 else 1
+#     ax2.set_ylim(0, max(3, maxcnt * 1.15))
 
-    # If you prefer fraction instead of raw counts, uncomment the following and comment the ax2.plot above:
-    # ax2.plot(bin_centers, bin_extreme_frac, 's--', ms=6, color='C1', label=f'Fraction (DoR > {EXTREME_DOR})')
-    # ax2.set_ylabel(f'Fraction with DoR > {EXTREME_DOR}')
-    # ax2.set_ylim(0, 1.05)
+#     # If you prefer fraction instead of raw counts, uncomment the following and comment the ax2.plot above:
+#     # ax2.plot(bin_centers, bin_extreme_frac, 's--', ms=6, color='C1', label=f'Fraction (DoR > {EXTREME_DOR})')
+#     # ax2.set_ylabel(f'Fraction with DoR > {EXTREME_DOR}')
+#     # ax2.set_ylim(0, 1.05)
 
-    # legends: combine handles from both axes
-    h1, l1 = ax.get_legend_handles_labels()
-    h2, l2 = ax2.get_legend_handles_labels()
-    ax.legend(h1 + h2, l1 + l2, loc='upper right', fontsize=9)
+#     # legends: combine handles from both axes
+#     h1, l1 = ax.get_legend_handles_labels()
+#     h2, l2 = ax2.get_legend_handles_labels()
+#     ax.legend(h1 + h2, l1 + l2, loc='upper right', fontsize=9)
 
-    # optional: annotate extreme counts above the right-axis line
-    for x, cnt in zip(bin_centers, bin_extreme_counts):
-        ax2.text(x, cnt + max(1, 0.03 * maxcnt), f"{int(cnt)}", ha='center', va='bottom', fontsize=7, color='C1', alpha=0.8)
+#     # optional: annotate extreme counts above the right-axis line
+#     for x, cnt in zip(bin_centers, bin_extreme_counts):
+#         ax2.text(x, cnt + max(1, 0.03 * maxcnt), f"{int(cnt)}", ha='center', va='bottom', fontsize=7, color='C1', alpha=0.8)
 
-    out_sum = os.path.join(bin_outdir, "DoR_median_vs_mass_bin_with_extremes.png")
-    fig.savefig(out_sum, dpi=200, bbox_inches="tight")
-    plt.close(fig)
-    print("Saved summary median DoR vs mass bin (with extreme counts):", out_sum)
-else:
-    print("No mass-bin statistics produced (no matched UCMGs?).")
+#     out_sum = os.path.join(bin_outdir, "DoR_median_vs_mass_bin_with_extremes.png")
+#     fig.savefig(out_sum, dpi=200, bbox_inches="tight")
+#     plt.close(fig)
+#     print("Saved summary median DoR vs mass bin (with extreme counts):", out_sum)
+# else:
+#     print("No mass-bin statistics produced (no matched UCMGs?).")

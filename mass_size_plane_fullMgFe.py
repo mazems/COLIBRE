@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import common
+import h5py
 import pandas as pd
 from matplotlib.path import Path
 from scipy.spatial import cKDTree as KDTree, ConvexHull
@@ -76,7 +77,7 @@ def _biweight_scale(resid):
         return 1e-9
     return 1.4826 * mad
 
-def loess_2d(x1, y1, z, frac=0.5, degree=1, rescale=False, npoints=None, sigz=None,
+def loess_2d(x1, y1, z, frac=0.1, degree=1, rescale=False, npoints=None, sigz=None,
              xout=None, yout=None):
     """
     LOESS 2D with robust biweight reweighting.
@@ -291,13 +292,18 @@ comov_to_physical_length = 1.0 / (1.0 + ztarget)
     #fields_fof = /SOAP-HBT/HostHaloIndex, 
     #/InputHalos/HBTplus/HostFOFId
 fields_sgn = {'InputHalos': ('HaloCatalogueIndex', 'IsCentral', 'HBTplus/DescendantTrackId', 'HBTplus/TrackId')} 
-fields ={'ExclusiveSphere/50kpc': ('StellarMass', 'StarFormationRate', 'HalfMassRadiusStars', 'CentreOfMass', 'MassWeightedMeanStellarAge', 'LuminosityWeightedMeanStellarAge', 'LinearMassWeightedIronOverHydrogenOfStars', 'LinearMassWeightedMagnesiumOverHydrogenOfStars')}
+fields ={'ExclusiveSphere/50kpc': ('StellarMass', 'StarFormationRate', 'HalfMassRadiusStars', 'CentreOfMass', 'MassWeightedMeanStellarAge', 'LuminosityWeightedMeanStellarAge', 'LinearMassWeightedIronOverHydrogenOfStars', 'LinearMassWeightedMagnesiumOverHydrogenOfStars', 'StellarMassFractionInMetals')}
 fields_proj = {'ProjectedAperture/50kpc/projz': ('StellarMass', 'HalfMassRadiusStars')}
 h5data_groups = common.read_group_data_colibre(model_dir, snap_file, fields)
 h5data_idgroups = common.read_group_data_colibre(model_dir, snap_file, fields_sgn)
 h5data_groups_proj = common.read_group_data_colibre(model_dir, snap_file, fields_proj)
-(m30, sfr30, r50, cp, stellarage, stellarage_lum, FeoverH, MgoverH) = h5data_groups
+(m30, sfr30, r50, cp, stellarage, stellarage_lum, FeoverH, MgoverH, Zstar_raw) = h5data_groups
 (m30_proj, r50_proj) = h5data_groups_proj
+
+soap_id = {'SOAP': ('HostHaloIndex',)}
+h5data_soap = common.read_group_data_colibre(model_dir, snap_file, soap_id)
+(host_halo_index) = h5data_soap
+
 #unit conversion
 # mdust = (mdustl + mdusts) * Mu
 m30 = m30 * Mu
@@ -311,7 +317,17 @@ stellarage = stellarage * tu / 1e9 #in Gyr
 stellarage_lum = stellarage_lum * tu / 1e9 #in Gyr
 cp = cp * Lu * comov_to_physical_length
 # Jstars = Jstars * Mu / (Lu * comov_to_physical_length)**2 / tu
+
+Zsun = 0.0134   # AGSS09 convention
+# Zsun = 0.0139 # Asplund et al. 2021 present-day photospheric value
     
+Zstar = np.asarray(Zstar_raw, dtype=float)
+with np.errstate(divide="ignore", invalid="ignore"):
+    logZstar = np.where((Zstar > 0) & np.isfinite(Zstar), np.log10(Zstar), np.nan)
+    logZstar_rel = np.where((Zstar > 0) & np.isfinite(Zstar),
+                            np.log10(Zstar / Zsun),
+                            np.nan)
+  
 (sgn, is_central, desc_id, track_id) = h5data_idgroups
 xg = cp[:,0]
 yg = cp[:,1]
@@ -340,6 +356,9 @@ if(ngals > 0):
     stellarage_lum_in = stellarage_lum[select]
     FeoverH_in = FeoverH[select]
     MgoverH_in = MgoverH[select]
+    Zstar_in = Zstar[select]
+    logZstar_in = logZstar[select]
+    logZstar_rel_in = logZstar_rel[select]
     # ZgasLow_in = ZgasLow[select]
     # ZgasHigh_in = ZgasHigh[select]
     x_in = xg[select]
@@ -351,7 +370,7 @@ if(ngals > 0):
     # mdust_in = mdust[select]
    
     #save galaxy properties of interest
-    gal_props = np.zeros(shape = (ngals, 16))
+    gal_props = np.zeros(shape = (ngals, 19))
     gal_props[:,0] = sgn_in
     gal_props[:,1] = is_central_in
     gal_props[:,2] = x_in
@@ -372,11 +391,14 @@ if(ngals > 0):
     gal_props[:,9] = stellarage_lum_in
     gal_props[:,10] = FeoverH_in
     gal_props[:,11] = MgoverH_in
+    gal_props[:,12] = Zstar_in
+    gal_props[:,13] = logZstar_in 
+    gal_props[:,14] = logZstar_rel_in
     # gal_props[:,15] = ZgasLow_in
     # gal_props[:,16] = ZgasHigh_in
     # gal_props[:,17] = mdust_in
-    gal_props[:,12] = desc_id[select]
-    gal_props[:,13] = track_id[select]
+    gal_props[:,15] = desc_id[select]
+    gal_props[:,16] = track_id[select]
     out_dir = "/home/mzemsch/COLIBRE-analysis/ProcessedData"
     os.makedirs(out_dir, exist_ok=True)
 
@@ -390,7 +412,7 @@ if(ngals > 0):
 stellar_masses = np.logspace(9, 12, 100)
 a = 2/3
 logsigma = 8.0 
-logsigma_ref = 9.75 #10.0 cut by eye
+logsigma_ref = 9.72 #10.0 cut by eye
 effective_radii = (stellar_masses/(10**(logsigma)))**a
 
 #Mg/Fe computation
@@ -436,6 +458,7 @@ if ngals > 0:
     log_r_proj = np.log10(r50_proj[mask_proj])
     mgfe_plot = mgfe[mask]
     stellar_lum_plot = stellarage_lum_in[mask]
+    stellar_mw_plot = stellarage_in[mask]
     sfr_plot = sfr_in[mask]
     vmin = float(np.nanpercentile(mgfe_plot, 5))
     vmax = float(np.nanpercentile(mgfe_plot, 95))
@@ -471,6 +494,55 @@ if ngals > 0:
     plt.close()
 else:
     print("No galaxies selected; skipping plot.")
+
+# --------------------------------------------------------------
+# LOAD HOST VELOCITY DISPERSION (CORRECT + ALIGNED)
+# --------------------------------------------------------------
+sigma_path = "/mnt/su3-pro/colibre/L0200N3008/THERMAL_AGN/SOAP-HBT/extra/halo_properties_0127.hdf5"
+
+# mask of galaxies you actually want to plot
+mask_positive_full = (m30 >= 1e9) & (m30 > 0) & (r50 > 0)
+
+# row positions in the SOAP catalogue
+row_idx = np.flatnonzero(mask_positive_full)
+
+# allocate full-length array if you want to keep SOAP alignment
+sigma_full = np.full(m30.shape, np.nan, dtype=np.float32)
+
+sigma_path = "/mnt/su3-pro/colibre/L0200N3008/THERMAL_AGN/SOAP-HBT/extra/halo_properties_0127.hdf5"
+sigma_ds = "/ExclusiveSphere/HalfMassRadiusStars/StellarCylindricalVelocityDispersionVerticalLuminosityWeighted"
+
+if os.path.exists(sigma_path):
+    with h5py.File(sigma_path, "r") as f:
+        ds = f[sigma_ds]
+        print("sigma dataset shape:", ds.shape)
+
+        # read only the selected rows
+        rows = np.asarray(ds[row_idx, :], dtype=np.float32)   # shape (N, 9)
+
+        # diagonal components of the 3x3 tensor
+        sigma_rr   = rows[:, 0]
+        sigma_pphi = rows[:, 4]
+        sigma_zz   = rows[:, 8]
+
+        # your requested scalar sigma
+        sigma_sel = np.sqrt(sigma_rr**2 + sigma_pphi**2 + sigma_zz**2)
+
+        # put back into full SOAP-aligned array
+        sigma_full[row_idx] = sigma_sel
+
+        # log sigma for plotting
+        log_sigma_full = np.full(m30.shape, np.nan, dtype=np.float32)
+        log_sigma_full[row_idx] = np.where(sigma_sel > 0, np.log10(sigma_sel), np.nan)
+
+    print("Loaded sigma values:", np.isfinite(sigma_sel).sum(), "/", sigma_sel.size)
+    print("N(sigma == 0):", np.count_nonzero(np.isclose(sigma_sel[np.isfinite(sigma_sel)], 0.0)))
+else:
+    print("Sigma file not found.")
+
+sigma_vals = sigma_full[mask_positive_full]
+log_sigma_vals = log_sigma_full[mask_positive_full]
+
 
 # --- LOESS-coloured Mg/Fe mass-size plot (self-consistent replacement) ---
 
@@ -530,7 +602,7 @@ else:
         yout = pts_grid[idx_inside, 1]
 
         # LOESS parameters (tweak frac if smoothing too strong)
-        frac_loess = 0.10
+        frac_loess = 0.01
         degree = 1
 
         Zflat_inside, Wflat = loess_2d(xvals, yvals, zvals, frac=frac_loess, degree=degree,
@@ -690,7 +762,7 @@ else:
     )
 
     cbar = fig.colorbar(hb, ax=ax)
-    cbar.set_label("Luminosity Weighted Mean Stellar Age [Gyr]")
+    cbar.set_label("Age [Gyr]")
 
 
     # draw compactness threshold and labels (same as before)
@@ -812,7 +884,7 @@ else:
 #                     color=(0.6,0.6,0.6), alpha=0.5, s=10, label='no lum age data')
 
 #     cbar = plt.colorbar(im)
-#     cbar.set_label("Luminosity Weighted Mean Stellar Age [Gyr]")
+#     cbar.set_label("Age [Gyr]")
 
 # # draw compactness threshold (foreground)
 # plt.plot(np.log10(stellar_masses), (2/3)*(np.log10(stellar_masses) - logsigma_ref),
@@ -882,7 +954,7 @@ else:
         xout = pts_grid[idx_inside, 0]
         yout = pts_grid[idx_inside, 1]
 
-        frac_loess = 0.10
+        frac_loess = 0.01
         degree = 1
 
         Zflat_inside, _ = loess_2d(xvals, yvals, zvals, frac=frac_loess, degree=degree,
@@ -907,7 +979,7 @@ else:
         cmap = plt.get_cmap("viridis")
         im = ax.pcolormesh(Xg, Yg, Zmask, shading='auto', cmap=cmap, vmin=vmin, vmax=vmax)
         cbar = fig.colorbar(im, ax=ax)
-        cbar.set_label("Luminosity Weighted Mean Stellar Age [Gyr]")
+        cbar.set_label("Age [Gyr]")
 
         ax.scatter(xout, yout, s=1, c='k', alpha=0.05, linewidths=0)
     else:
@@ -1283,7 +1355,7 @@ else:
         xout = pts_grid[idx_inside, 0]
         yout = pts_grid[idx_inside, 1]
 
-        frac_loess = 0.10
+        frac_loess = 0.01
         degree = 1
 
         Zflat_inside, _ = loess_2d(xvals, yvals, zvals, frac=frac_loess, degree=degree,
@@ -1328,3 +1400,529 @@ outpath_ssfr = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_ssfr_loess.png")
 fig.savefig(outpath_ssfr, dpi=300, bbox_inches='tight')
 plt.close(fig)
 print("Saved sSFR LOESS plot (Mg/Fe-consistent):", outpath_ssfr)
+
+   # ----------------- Hexbin version (stellar metallicity) -----------------
+
+finite_mask = np.isfinite(logZstar_rel_in)
+x_h = log_m[finite_mask]
+y_h = log_r[finite_mask]
+c_h = logZstar_rel_in[finite_mask]
+
+if x_h.size == 0:
+    print("No finite Zstar values for hexbin — skipping.")
+else:
+    fig, ax = plt.subplots(figsize=(8,6))
+
+    # robust vmin/vmax based on your existing percentile logic
+    try:
+        vmin_h = float(np.nanpercentile(c_h, 5))
+        vmax_h = float(np.nanpercentile(c_h, 95))
+    except Exception:
+        vmin_h, vmax_h = float(np.nanmin(c_h)), float(np.nanmax(c_h))
+    if not np.isfinite(vmin_h) or not np.isfinite(vmax_h) or vmin_h == vmax_h:
+        med = float(np.nanmedian(c_h))
+        span = max(0.2, 0.5 * max(1e-6, abs(med)))
+        vmin_h = med - span
+        vmax_h = med + span
+
+    # hexbin parameters (tweak gridsize for resolution, mincnt to hide sparse bins)
+    gridsize = 80        # try 60-120 depending on number of points and desired resolution
+    mincnt = 3           # bins with fewer than mincnt points will be blank
+
+    # do the hexbin: reduce_C_function=np.nanmean computes mean [Mg/Fe] per bin
+    hb = ax.hexbin(
+        x_h, y_h, C=c_h,
+        gridsize=gridsize,
+        reduce_C_function=np.nanmean,
+        mincnt=mincnt,
+        cmap='viridis',
+        vmin=vmin_h, vmax=vmax_h,
+        linewidths=0.2,
+        edgecolors='none'
+    )
+
+    cbar = fig.colorbar(hb, ax=ax)
+    cbar.set_label(r"$\lg[Z_* / Z_\odot]$")
+
+     # draw compactness threshold and labels (same as before)
+    ax.plot(np.log10(stellar_masses), (2/3)*(np.log10(stellar_masses) - logsigma_ref),
+            linestyle='--', color='black', label=fr'Compactness threshold ($\lg\Sigma_{{1.5}} = {logsigma_ref}$)')
+
+    ax.set_xlabel(r"lg(Stellar Mass / $M_{\odot}$)")
+    ax.set_ylabel(r"lg(Half Mass Radius / kpc)")
+   # ax.set_title("Mass–size plane coloured by mean stellar age (hexbin)")
+    ax.legend(fontsize=8)
+    ax.grid(True)
+
+    outpath_hex = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_metallicity_hexbin.png")
+    fig.savefig(outpath_hex, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    print("Saved Zstar-coloured mass-size hexbin:", outpath_hex)
+
+    # --- LOESS-coloured metallicity (Mg/Fe-consistent) ---
+
+SHOW_MISSING = True
+
+logZ_aligned = logZstar_rel_in.copy()
+
+have_mask = np.isfinite(logZ_aligned)
+missing_mask = ~have_mask
+n_have = int(have_mask.sum())
+n_missing = int(missing_mask.sum())
+total_plot = int(len(logZ_aligned))
+
+print(f"DEBUG Zstar (LOESS block): have={n_have}, missing={n_missing}, total_plot={total_plot}")
+
+fig, ax = plt.subplots(figsize=(8,6))
+
+if n_have == 0:
+    if SHOW_MISSING:
+        ax.scatter(log_m, log_r, s=10, alpha=0.7, color="lightgrey", label="no metallicity")
+    else:
+        ax.scatter(log_m, log_r, s=10, alpha=0.7, label="galaxies")
+else:
+    xvals = log_m[have_mask]
+    yvals = log_r[have_mask]
+    zvals = logZ_aligned[have_mask]
+
+    # grid tightly around the LOESS input points (same as Mg/Fe)
+    pad_x = 0.05 * (np.nanmax(xvals) - np.nanmin(xvals) + 1e-6)
+    pad_y = 0.05 * (np.nanmax(yvals) - np.nanmin(yvals) + 1e-6)
+    nx, ny = 300, 220
+    xg = np.linspace(np.nanmin(xvals) - pad_x, np.nanmax(xvals) + pad_x, nx)
+    yg = np.linspace(np.nanmin(yvals) - pad_y, np.nanmax(yvals) + pad_y, ny)
+    Xg, Yg = np.meshgrid(xg, yg)
+    pts_grid = np.column_stack((Xg.ravel(), Yg.ravel()))
+
+    # KDTree on LOESS input points
+    tree_data = KDTree(np.column_stack((xvals, yvals)))
+    d_grid, _ = tree_data.query(pts_grid, k=1)
+
+    d_data, _ = tree_data.query(np.column_stack((xvals, yvals)), k=2)
+    if d_data.ndim == 2 and d_data.shape[1] >= 2:
+        typical_spacing = float(np.nanpercentile(d_data[:, 1], 95))
+    else:
+        typical_spacing = float(np.nanmedian(d_grid))
+
+    d_thresh = max(typical_spacing * 1.3, 1e-6)
+    inside_mask = (d_grid <= d_thresh)
+    idx_inside = np.nonzero(inside_mask)[0]
+
+    if idx_inside.size > 0:
+        xout = pts_grid[idx_inside, 0]
+        yout = pts_grid[idx_inside, 1]
+
+        frac_loess = 0.01
+        degree = 1
+
+        Zflat_inside, _ = loess_2d(xvals, yvals, zvals, frac=frac_loess, degree=degree,
+                                   xout=xout, yout=yout)
+
+        Zflat = np.full(pts_grid.shape[0], np.nan, dtype=float)
+        Zflat[idx_inside] = Zflat_inside
+        Zgrid = Zflat.reshape((ny, nx))
+        Zmask = np.ma.masked_invalid(Zgrid)
+
+        try:
+            vmin = float(np.nanpercentile(zvals, 5))
+            vmax = float(np.nanpercentile(zvals, 95))
+        except Exception:
+            vmin, vmax = float(np.nanmin(zvals)), float(np.nanmax(zvals))
+        if not np.isfinite(vmin) or not np.isfinite(vmax) or vmin == vmax:
+            med = float(np.nanmedian(zvals))
+            span = max(0.2, 0.5 * max(1e-6, abs(med)))
+            vmin = med - span
+            vmax = med + span
+
+        cmap = plt.get_cmap("viridis")
+        im = ax.pcolormesh(Xg, Yg, Zmask, shading='auto', cmap=cmap, vmin=vmin, vmax=vmax)
+        cbar = fig.colorbar(im, ax=ax)
+        cbar.set_label(r"$\lg[Z_\star / Z_\odot]$")
+
+        ax.scatter(xout, yout, s=1, c='k', alpha=0.05, linewidths=0)
+    else:
+        ax.scatter(xvals, yvals, c=zvals, cmap='viridis', s=12, edgecolors='none')
+
+    if SHOW_MISSING and n_missing > 0:
+        ax.scatter(log_m[missing_mask], log_r[missing_mask], color="lightgrey", s=8, alpha=0.6, label="no metallicity")
+
+ax.plot(np.log10(stellar_masses), (2/3)*(np.log10(stellar_masses) - logsigma_ref),
+        linestyle='--', color='black', label=fr'Compactness threshold ($\lg\Sigma_{{1.5}} = {logsigma_ref}$)')
+ax.set_xlabel(r"lg(Stellar Mass / $M_{\odot}$)")
+ax.set_ylabel(r"lg(Half Mass Radius / kpc)")
+ax.legend(fontsize=8)
+ax.grid(True)
+
+outpath_loess = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_metallicity_loess.png")
+fig.savefig(outpath_loess, dpi=300, bbox_inches='tight')
+plt.close(fig)
+print("Saved metallicity LOESS plot (Mg/Fe-consistent):", outpath_loess)
+
+   # ----------------- Hexbin version (mass weighted mean stellar age) -----------------
+
+finite_mask = np.isfinite(stellar_mw_plot)
+x_h = log_m[finite_mask]
+y_h = log_r[finite_mask]
+c_h = stellar_mw_plot[finite_mask]
+
+if x_h.size == 0:
+    print("No finite age(mw) values for hexbin — skipping.")
+else:
+    fig, ax = plt.subplots(figsize=(8,6))
+
+    # robust vmin/vmax based on your existing percentile logic
+    try:
+        vmin_h = float(np.nanpercentile(stellar_lum_plot, 5))
+        vmax_h = float(np.nanpercentile(stellar_lum_plot, 95))
+    except Exception:
+        vmin_h, vmax_h = float(np.nanmin(c_h)), float(np.nanmax(c_h))
+    if not np.isfinite(vmin_h) or not np.isfinite(vmax_h) or vmin_h == vmax_h:
+        med = float(np.nanmedian(c_h))
+        span = max(0.2, 0.5 * max(1e-6, abs(med)))
+        vmin_h = med - span
+        vmax_h = med + span
+
+    # hexbin parameters (tweak gridsize for resolution, mincnt to hide sparse bins)
+    gridsize = 80        # try 60-120 depending on number of points and desired resolution
+    mincnt = 3           # bins with fewer than mincnt points will be blank
+
+    # do the hexbin: reduce_C_function=np.nanmean computes mean [Mg/Fe] per bin
+    hb = ax.hexbin(
+        x_h, y_h, C=c_h,
+        gridsize=gridsize,
+        reduce_C_function=np.nanmean,
+        mincnt=mincnt,
+        cmap='viridis',
+        vmin=vmin_h, vmax=vmax_h,
+        linewidths=0.2,
+        edgecolors='none'
+    )
+
+    cbar = fig.colorbar(hb, ax=ax)
+    cbar.set_label("Mass Weighted Mean Stellar Age [Gyr]")
+
+
+    # draw compactness threshold and labels (same as before)
+    ax.plot(np.log10(stellar_masses), (2/3)*(np.log10(stellar_masses) - logsigma_ref),
+            linestyle='--', color='black', label=fr'Compactness threshold ($\lg\Sigma_{{1.5}} = {logsigma_ref}$)')
+
+    ax.set_xlabel(r"lg(Stellar Mass / $M_{\odot}$)")
+    ax.set_ylabel(r"lg(Half Mass Radius / kpc)")
+   # ax.set_title("Mass–size plane coloured by mean stellar age (hexbin)")
+    ax.legend(fontsize=8)
+    ax.grid(True)
+
+    outpath_hex = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_age(mw)_hexbin.png")
+    fig.savefig(outpath_hex, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    print("Saved Age(mw)-coloured mass-size hexbin:", outpath_hex)
+
+# --- LOESS-coloured Mass-weighted mean stellar age (Mg/Fe-consistent) ---
+
+SHOW_MISSING = True
+
+mw_aligned = stellar_mw_plot.copy()
+
+have_mask = np.isfinite(mw_aligned)
+missing_mask = ~have_mask
+n_have = int(have_mask.sum())
+n_missing = int(missing_mask.sum())
+total_plot = int(len(mw_aligned))
+
+print(f"DEBUG MwAge (LOESS block): have={n_have}, missing={n_missing}, total_plot={total_plot}")
+
+fig, ax = plt.subplots(figsize=(8,6))
+
+if n_have == 0:
+    if SHOW_MISSING:
+        ax.scatter(log_m, log_r, s=10, alpha=0.7, color="lightgrey", label="no mw age")
+    else:
+        ax.scatter(log_m, log_r, s=10, alpha=0.7, label="galaxies")
+else:
+    xvals = log_m[have_mask]
+    yvals = log_r[have_mask]
+    zvals = mw_aligned[have_mask]
+
+    # grid tightly around the LOESS input points (same as Mg/Fe)
+    pad_x = 0.05 * (np.nanmax(xvals) - np.nanmin(xvals) + 1e-6)
+    pad_y = 0.05 * (np.nanmax(yvals) - np.nanmin(yvals) + 1e-6)
+    nx, ny = 300, 220
+    xg = np.linspace(np.nanmin(xvals) - pad_x, np.nanmax(xvals) + pad_x, nx)
+    yg = np.linspace(np.nanmin(yvals) - pad_y, np.nanmax(yvals) + pad_y, ny)
+    Xg, Yg = np.meshgrid(xg, yg)
+    pts_grid = np.column_stack((Xg.ravel(), Yg.ravel()))
+
+    # KDTree on LOESS input points
+    tree_data = KDTree(np.column_stack((xvals, yvals)))
+    d_grid, _ = tree_data.query(pts_grid, k=1)
+
+    d_data, _ = tree_data.query(np.column_stack((xvals, yvals)), k=2)
+    if d_data.ndim == 2 and d_data.shape[1] >= 2:
+        typical_spacing = float(np.nanpercentile(d_data[:, 1], 95))
+    else:
+        typical_spacing = float(np.nanmedian(d_grid))
+
+    d_thresh = max(typical_spacing * 1.3, 1e-6)
+    inside_mask = (d_grid <= d_thresh)
+    idx_inside = np.nonzero(inside_mask)[0]
+
+    if idx_inside.size > 0:
+        xout = pts_grid[idx_inside, 0]
+        yout = pts_grid[idx_inside, 1]
+
+        frac_loess = 0.01
+        degree = 1
+
+        Zflat_inside, _ = loess_2d(xvals, yvals, zvals, frac=frac_loess, degree=degree,
+                                   xout=xout, yout=yout)
+
+        Zflat = np.full(pts_grid.shape[0], np.nan, dtype=float)
+        Zflat[idx_inside] = Zflat_inside
+        Zgrid = Zflat.reshape((ny, nx))
+        Zmask = np.ma.masked_invalid(Zgrid)
+
+        try:
+            vmin = float(np.nanpercentile(stellar_lum_plot, 5))
+            vmax = float(np.nanpercentile(stellar_lum_plot, 95))
+        except Exception:
+            vmin, vmax = float(np.nanmin(zvals)), float(np.nanmax(zvals))
+        if not np.isfinite(vmin) or not np.isfinite(vmax) or vmin == vmax:
+            med = float(np.nanmedian(zvals))
+            span = max(0.2, 0.5 * max(1e-6, abs(med)))
+            vmin = med - span
+            vmax = med + span
+
+        cmap = plt.get_cmap("viridis")
+        im = ax.pcolormesh(Xg, Yg, Zmask, shading='auto', cmap=cmap, vmin=vmin, vmax=vmax)
+        cbar = fig.colorbar(im, ax=ax)
+        cbar.set_label("Mass Weighted Mean Stellar Age [Gyr]")
+
+        ax.scatter(xout, yout, s=1, c='k', alpha=0.05, linewidths=0)
+    else:
+        ax.scatter(xvals, yvals, c=zvals, cmap='viridis', s=12, edgecolors='none')
+
+    if SHOW_MISSING and n_missing > 0:
+        ax.scatter(log_m[missing_mask], log_r[missing_mask], color="lightgrey", s=8, alpha=0.6, label="no lum age")
+
+ax.plot(np.log10(stellar_masses), (2/3)*(np.log10(stellar_masses) - logsigma_ref),
+        linestyle='--', color='black', label=fr'Compactness threshold ($\lg\Sigma_{{1.5}} = {logsigma_ref}$)')
+ax.set_xlabel(r"lg(Stellar Mass / $M_{\odot}$)")
+ax.set_ylabel(r"lg(Half Mass Radius / kpc)")
+ax.legend(fontsize=8)
+ax.grid(True)
+
+outpath_loess = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_age(mw)_loess.png")
+fig.savefig(outpath_loess, dpi=300, bbox_inches='tight')
+plt.close(fig)
+print("Saved mw age LOESS plot (Mg/Fe-consistent):", outpath_loess)
+
+# --- LOESS-coloured velocity dispersion (Mg/Fe-consistent) ---
+
+SHOW_MISSING = True
+
+sigma_aligned = sigma_vals.copy()   # align to plotting sample
+log_sigma_aligned = log_sigma_vals.copy()
+
+have_mask = np.isfinite(log_sigma_aligned)
+
+missing_mask = ~have_mask
+
+n_have = int(have_mask.sum())
+
+n_missing = int(missing_mask.sum())
+
+total_plot = int(len(log_sigma_aligned))
+
+print(f"DEBUG sigma (LOESS block): have={n_have}, missing={n_missing}, total_plot={total_plot}")
+
+fig, ax = plt.subplots(figsize=(8,6))
+
+if n_have == 0:
+
+    if SHOW_MISSING:
+
+        ax.scatter(log_m, log_r, s=10, alpha=0.7,
+
+                   color="lightgrey", label="no sigma")
+
+    else:
+
+        ax.scatter(log_m, log_r, s=10, alpha=0.7, label="galaxies")
+
+else:
+
+    xvals = log_m[have_mask]
+
+    yvals = log_r[have_mask]
+
+    zvals = log_sigma_aligned[have_mask]
+
+    # --- SAME GRID LOGIC ---
+
+    pad_x = 0.05 * (np.nanmax(xvals) - np.nanmin(xvals) + 1e-6)
+
+    pad_y = 0.05 * (np.nanmax(yvals) - np.nanmin(yvals) + 1e-6)
+
+    nx, ny = 300, 220
+
+    xg = np.linspace(np.nanmin(xvals) - pad_x,
+
+                     np.nanmax(xvals) + pad_x, nx)
+
+    yg = np.linspace(np.nanmin(yvals) - pad_y,
+
+                     np.nanmax(yvals) + pad_y, ny)
+
+    Xg, Yg = np.meshgrid(xg, yg)
+
+    pts_grid = np.column_stack((Xg.ravel(), Yg.ravel()))
+
+    # --- KDTree masking (IDENTICAL) ---
+
+    tree_data = KDTree(np.column_stack((xvals, yvals)))
+
+    d_grid, _ = tree_data.query(pts_grid, k=1)
+
+    d_data, _ = tree_data.query(np.column_stack((xvals, yvals)), k=2)
+
+    if d_data.ndim == 2 and d_data.shape[1] >= 2:
+
+        typical_spacing = float(np.nanpercentile(d_data[:, 1], 95))
+
+    else:
+
+        typical_spacing = float(np.nanmedian(d_grid))
+
+    d_thresh = max(typical_spacing * 1.3, 1e-6)
+
+    inside_mask = (d_grid <= d_thresh)
+
+    idx_inside = np.nonzero(inside_mask)[0]
+
+    if idx_inside.size > 0:
+
+        xout = pts_grid[idx_inside, 0]
+
+        yout = pts_grid[idx_inside, 1]
+
+        frac_loess = 0.01
+
+        degree = 1
+
+        Zflat_inside, _ = loess_2d(
+
+            xvals, yvals, zvals,
+
+            frac=frac_loess,
+
+            degree=degree,
+
+            xout=xout,
+
+            yout=yout
+
+        )
+
+        Zflat = np.full(pts_grid.shape[0], np.nan)
+
+        Zflat[idx_inside] = Zflat_inside
+
+        Zgrid = Zflat.reshape((ny, nx))
+
+        Zmask = np.ma.masked_invalid(Zgrid)
+
+        # --- SAME COLOR SCALING ---
+
+        try:
+
+            vmin = float(np.nanpercentile(zvals, 5))
+
+            vmax = float(np.nanpercentile(zvals, 95))
+
+        except Exception:
+
+            vmin, vmax = float(np.nanmin(zvals)), float(np.nanmax(zvals))
+
+        if not np.isfinite(vmin) or not np.isfinite(vmax) or vmin == vmax:
+
+            med = float(np.nanmedian(zvals))
+
+            span = max(10.0, 0.5 * max(1e-6, abs(med)))
+
+            vmin = med - span
+
+            vmax = med + span
+
+        cmap = plt.get_cmap("viridis")
+
+        im = ax.pcolormesh(
+
+            Xg, Yg, Zmask,
+
+            shading='auto',
+
+            cmap=cmap,
+
+            vmin=vmin,
+
+            vmax=vmax
+
+        )
+
+        cbar = fig.colorbar(im, ax=ax)
+
+        cbar.set_label(r'$\lg(\sigma / \mathrm{km}\ \mathrm{s}^{-1})$')
+
+        ax.scatter(xout, yout, s=1,
+
+                   c='k', alpha=0.05, linewidths=0)
+
+    else:
+
+        ax.scatter(xvals, yvals,
+
+                   c=zvals, cmap='viridis',
+
+                   s=12, edgecolors='none')
+
+    if SHOW_MISSING and n_missing > 0:
+
+        ax.scatter(log_m[missing_mask],
+
+                   log_r[missing_mask],
+
+                   color="lightgrey", s=8, alpha=0.6,
+
+                   label="no sigma")
+
+# --- SAME DECORATION ---
+
+ax.plot(np.log10(stellar_masses),
+
+        (2/3)*(np.log10(stellar_masses) - logsigma_ref),
+
+        linestyle='--', color='black',
+
+        label=fr'Compactness threshold ($\lg\Sigma_{{1.5}} = {logsigma_ref}$)')
+
+ax.set_xlabel(r"lg(Stellar Mass / $M_{\odot}$)")
+
+ax.set_ylabel(r"lg(Half Mass Radius / kpc)")
+
+ax.legend(fontsize=8)
+
+ax.grid(True)
+
+outpath_sigma = os.path.join(
+
+    outdir,
+
+    f"mass_size_z{ztarget:.1f}_sigma_loess.png"
+
+)
+
+fig.savefig(outpath_sigma, dpi=300, bbox_inches='tight')
+
+plt.close(fig)
+
+print("Saved sigma LOESS plot:", outpath_sigma)
