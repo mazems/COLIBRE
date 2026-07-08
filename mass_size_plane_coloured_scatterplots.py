@@ -188,6 +188,54 @@ finite_mask = np.isfinite(mgfe_vals)
 n_have = finite_mask.sum()
 print(f"Mg/Fe available for {n_have} / {len(mgfe_vals)} galaxies")
 
+# --------------------------------------------------------------
+# LOAD HOST VELOCITY DISPERSION (CORRECT + ALIGNED)
+# --------------------------------------------------------------
+sigma_path = "/mnt/su3-pro/colibre/L0200N3008/THERMAL_AGN/SOAP-HBT/extra/halo_properties_0127.hdf5"
+
+# mask of galaxies you actually want to plot
+mask_positive_full = (m30 >= 1e9) & (m30 > 0) & (r50 > 0)
+
+# row positions in the SOAP catalogue
+row_idx = np.flatnonzero(mask_positive_full)
+
+# allocate full-length array if you want to keep SOAP alignment
+sigma_full = np.full(m30.shape, np.nan, dtype=np.float32)
+
+sigma_path = "/mnt/su3-pro/colibre/L0200N3008/THERMAL_AGN/SOAP-HBT/extra/halo_properties_0127.hdf5"
+sigma_ds = "/ExclusiveSphere/3xHalfMassRadiusStars/StellarCylindricalVelocityDispersionVerticalLuminosityWeighted" #"/ExclusiveSphere/HalfMassRadiusStars/StellarCylindricalVelocityDispersionVerticalLuminosityWeighted"
+
+if os.path.exists(sigma_path):
+    with h5py.File(sigma_path, "r") as f:
+        ds = f[sigma_ds]
+        print("sigma dataset shape:", ds.shape)
+
+        # read only the selected rows
+        rows = np.asarray(ds[row_idx, :], dtype=np.float32)   # shape (N, 9)
+
+        # diagonal components of the 3x3 tensor
+        sigma_rr   = rows[:, 0]
+        sigma_pphi = rows[:, 4]
+        sigma_zz   = rows[:, 8]
+
+        # your requested scalar sigma
+        sigma_sel = np.sqrt((sigma_rr**2 + sigma_pphi**2 + sigma_zz**2)/3)
+
+        # put back into full SOAP-aligned array
+        sigma_full[row_idx] = sigma_sel
+
+        # log sigma for plotting
+        log_sigma_full = np.full(m30.shape, np.nan, dtype=np.float32)
+        log_sigma_full[row_idx] = np.where(sigma_sel > 0, np.log10(sigma_sel), np.nan)
+
+    print("Loaded sigma values:", np.isfinite(sigma_sel).sum(), "/", sigma_sel.size)
+    print("N(sigma == 0):", np.count_nonzero(np.isclose(sigma_sel[np.isfinite(sigma_sel)], 0.0)))
+else:
+    print("Sigma file not found.")
+
+sigma_vals = sigma_full[mask_positive_full]
+log_sigma_vals = log_sigma_full[mask_positive_full]
+
 # ---------- main mass-size scatter (unchanged) ------------------------------
 plt.rcParams.update({
     "mathtext.fontset": "stix",
@@ -198,7 +246,7 @@ plt.figure(figsize=(8,6))
 plt.scatter(log_m, log_r, alpha=0.7, s=10, label=f"Simulated galaxies at z={ztarget}")
 # threshold line
 stellar_masses = np.logspace(9, 12, 100)
-logsigma_ref = 9.75
+logsigma_ref = 9.72
 plt.plot(np.log10(stellar_masses), (2/3)*(np.log10(stellar_masses) - logsigma_ref),
          linestyle='--', color='black', label=fr'Compactness threshold ($\lg{{\Sigma_{{1.5}}}} = {logsigma_ref}$)')
 plt.xlabel(r"lg(Stellar Mass / $M_{\odot}$)")
@@ -567,8 +615,43 @@ plt.ylabel(r"lg(Half Mass Radius / kpc)")
 plt.legend(fontsize=8)
 plt.grid(True)
 cbar = plt.colorbar(sc)
-cbar.set_label(r"$\lg[Z_* / Z_\odot]$")
+cbar.set_label(r"$\lg[Z / H]$")
 outpath_zstar = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_logZrel_scattered.png")
 plt.savefig(outpath_zstar, dpi=300, bbox_inches='tight')
 plt.close()
 print("Saved metallicity coloured mass-size plot:", outpath_zstar)
+
+# ---------- mass-size coloured by velocity dispersion --------------------------
+plt.figure(figsize=(8,6))
+# prepare colour map: use 0..1 range; missing values plotted in light grey
+cmap = plt.get_cmap("viridis")
+# compute reasonable vmin/vmax from finite values if any, else default 0..1
+finite_mask = np.isfinite(log_sigma_vals)
+if finite_mask.sum() > 0:
+    vmin = float(np.nanpercentile(log_sigma_vals[finite_mask], 1))
+    vmax = float(np.nanpercentile(log_sigma_vals[finite_mask], 99))
+    if vmin == vmax:
+        vmin, vmax = 0.0, 1.0
+else:
+    vmin, vmax = 0.0, 1.0
+
+# scatter points with colour; plot missing as grey on top for visibility
+sc = plt.scatter(log_m, log_r, c=log_sigma_vals, cmap=cmap, vmin=vmin, vmax=vmax, alpha=0.85, s=18, edgecolors='none')
+# overlay grey markers for missing values so they are visible
+if finite_mask.sum() < len(log_sigma_vals):
+    missing_idx = ~finite_mask
+    plt.scatter(log_m[missing_idx], log_r[missing_idx], color=(0.6,0.6,0.6), alpha=0.5, s=10, label='no age data')
+
+plt.plot(np.log10(stellar_masses), (2/3)*(np.log10(stellar_masses) - logsigma_ref),
+         linestyle='--', color='black', label=fr'Compactness threshold ($\lg{{\Sigma_{{1.5}}}} = {logsigma_ref}$)')
+plt.xlabel(r"$\lg(M_\star / M_{\odot})$")
+plt.ylabel(r"$\lg(R_{1/2} / \mathrm{kpc})$")
+# plt.title("Mass-size relation coloured by luminosity weighted mean stellar age")
+plt.legend(fontsize=8)
+plt.grid(True)
+cbar = plt.colorbar(sc)
+cbar.set_label(r'$\lg(\sigma / \mathrm{km}\ \mathrm{s}^{-1})$')
+outpath_logsigma = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_sigma_scattered.png")
+plt.savefig(outpath_logsigma, dpi=300, bbox_inches='tight')
+plt.close()
+print("Saved logsigma coloured mass-size plot:", outpath_logsigma)

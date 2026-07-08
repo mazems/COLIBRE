@@ -33,6 +33,7 @@ snap_file = "0127"
 outdir = "extreme_relic_satellite_hosts"
 os.makedirs(outdir, exist_ok=True)
 
+
 EXTREME_DOR = 0.6
 COMPACTNESS_CUT = 9.72
 MIN_STELLAR_MASS = 1e9
@@ -111,12 +112,21 @@ fields_fof = {
         "FOF/Radii",
     )
 }
+
+fields_so = {
+    "SO/200_crit": (
+        "SORadius",
+        "TotalMass",
+    )
+}
+
 soap_id = {"SOAP": ("HostHaloIndex",)}
 
 (halo_index, is_central) = common.read_group_data_colibre(model_dir, snap_file, fields_id)
 (m30, r50, centre_of_mass, centre_of_mass_vel) = common.read_group_data_colibre(model_dir, snap_file, fields_gal)
 (fof_masses, fof_centres, fof_radii) = common.read_group_data_colibre(model_dir, snap_file, fields_fof)
 (host_halo_index,) = common.read_group_data_colibre(model_dir, snap_file, soap_id)
+(so_r200, so_m200) = common.read_group_data_colibre(model_dir, snap_file, fields_so)
 # ============================================================
 # UNITS / SHAPES
 # ============================================================
@@ -130,6 +140,8 @@ is_central = np.asarray(is_central).ravel().astype(bool)
 fof_masses = np.asarray(fof_masses, dtype=np.float32).ravel() * Mu
 fof_centres = np.asarray(fof_centres, dtype=np.float32) * 1e3 #converted to kpc
 fof_radii   = np.asarray(fof_radii,   dtype=np.float32).ravel() * 1e3 #converted to kpc
+so_r200 = np.asarray(so_r200, dtype=np.float32) * 1e3
+so_m200 = np.asarray(so_m200, dtype=np.float64) * Mu
 
 if not (m30.size == r50.size == halo_index.size == is_central.size):
     raise RuntimeError("SOAP arrays do not have matching lengths.")
@@ -188,10 +200,17 @@ if host_halo_index.size != m30.size:
     raise RuntimeError("HostHaloIndex length does not match SOAP catalogue length.")
 host_halo_index = host_halo_index[sel][valid_dor]
 
+# Using fof masses
+# host_mass = np.full(host_halo_index.size, np.nan, dtype=np.float32)
+# valid_host = (host_halo_index >= 0) & (host_halo_index < fof_masses.size)
+# if np.any(valid_host):
+#     host_mass[valid_host] = fof_masses[host_halo_index[valid_host]]
+
+# Using M200
 host_mass = np.full(host_halo_index.size, np.nan, dtype=np.float32)
-valid_host = (host_halo_index >= 0) & (host_halo_index < fof_masses.size)
+valid_host = (host_halo_index >= 0) & (host_halo_index < so_m200.size)
 if np.any(valid_host):
-    host_mass[valid_host] = fof_masses[host_halo_index[valid_host]]
+    host_mass[valid_host] = so_m200[host_halo_index[valid_host]]
 
 # Optional lightweight fallback if the catalogue uses an off-by-one convention
 if np.count_nonzero(np.isfinite(host_mass)) == 0:
@@ -367,8 +386,8 @@ dor_phase = dor[valid_phase]
 compactness_phase = compactness[valid_phase]
 
 host_pos = np.asarray(fof_centres, dtype=np.float32)[host_idx]
-host_r200 = np.asarray(fof_radii, dtype=np.float32)[host_idx] 
-Mhalo = np.asarray(fof_masses, dtype=np.float64)[host_idx]
+host_r200 = so_r200[host_idx]
+Mhalo = so_m200[host_idx] #Mhalo = np.asarray(fof_masses, dtype=np.float64)[host_idx]
 full_vel = np.asarray(centre_of_mass_vel, dtype=np.float32)
 host_vel = full_vel[host_idx]
 #Halo position as central subhalo position instead of fof_centre
@@ -383,12 +402,13 @@ host_vel = full_vel[host_idx]
 print("host_idx min/max:", np.min(host_idx), np.max(host_idx))
 print("full_vel shape:", full_vel.shape)
 
-test = np.linalg.norm(gal_vel[:20] - full_vel[host_idx[:20]], axis=1)
-
-print("example relative speeds:", test)
-print("median relative speed:", np.nanmedian(test))
+BOX = 200000.0  # kpc
 
 r_vec = gal_pos - host_pos
+# minimum-image convention
+r_vec = np.where(r_vec >  BOX/2, r_vec - BOX, r_vec)
+r_vec = np.where(r_vec < -BOX/2, r_vec + BOX, r_vec)
+
 v_vec = gal_vel - host_vel
 r_mag = np.linalg.norm(r_vec, axis=1)
 G = 4.30091e-6 # kpc (km/s)^2 Msun^-1
@@ -398,6 +418,42 @@ with np.errstate(invalid="ignore", divide="ignore"):
     vr = np.sum(v_vec * r_vec, axis=1) / r_mag
     r_over_r200 = r_mag / host_r200
     vr_over_sigma = vr / V200 #sigma_host
+
+# ============================================================
+# DIAGNOSTIC: extreme phase-space outliers
+# ============================================================
+
+speed = np.linalg.norm(v_vec, axis=1)
+
+print("median speed:", np.nanmedian(speed))
+print("mean speed:", np.nanmean(speed))
+print("95th percentile:", np.nanpercentile(speed,95))
+print("fraction speed==0:", np.mean(speed == 0))
+print("fraction centrals:",
+      np.mean(is_central_sel[valid_dor][valid_phase]))
+
+bad = np.isfinite(r_over_r200) & (r_over_r200 > 2)
+
+print("\nPHASE-SPACE OUTLIERS")
+print("--------------------")
+print("N(r/R200 > 2):", np.sum(bad))
+
+if np.any(bad):
+
+    idx = np.where(bad)[0]
+
+    order = np.argsort(r_over_r200[idx])[::-1]
+
+    for j in idx[order[:20]]:
+
+        print(
+            f"r/R200={r_over_r200[j]:8.3f}  "
+            f"r={r_mag[j]:10.3f} kpc  "
+            f"R200={host_r200[j]:10.3f} kpc  "
+            f"logMhost={np.log10(Mhalo[j]):6.3f}  "
+            f"host_idx={host_idx[j]}"
+        )
+print("N(r/R200 > 2):", np.sum(r_over_r200 > 2))
 
 relics = (
     (dor_phase > EXTREME_DOR) &
@@ -593,8 +649,10 @@ print(np.max(blue_x))
 print(np.percentile(blue_x, [95, 99, 99.9]))
 
 if blue_x.size > 20:
-    xgrid = np.linspace(0, 2.0, 250)
-    ygrid = np.linspace(np.nanmin(blue_y), np.nanmax(blue_y), 250)
+    pad_x = 0.1 * (np.nanmax(blue_x) - np.nanmin(blue_x))
+    pad_y = 0.1 * (np.nanmax(blue_y) - np.nanmin(blue_y))
+    xgrid = np.linspace(np.nanmin(blue_x) - pad_x, np.nanmax(blue_x) + pad_x, 300)
+    ygrid = np.linspace(np.nanmin(blue_y) - pad_y, np.nanmax(blue_y) + pad_y, 300)
     X, Y = np.meshgrid(xgrid, ygrid)
 
     kde = gaussian_kde(np.vstack([blue_x, blue_y]))
@@ -612,21 +670,39 @@ if blue_x.size > 20:
     lev68 = density_level_for_fraction(Z, 0.68)
     lev95 = density_level_for_fraction(Z, 0.95)
 
-    ax.contour(
+    cs = ax.contour(
         X, Y, Z,
         levels=sorted([lev95, lev68, lev50]),
-        colors=["0.75", "0.55", "0.35"],
-        linewidths=1.2
+        colors=["0.5", "0.3", "0.1"],
+        linewidths=1.5
     )
+
+    labels = ax.clabel(
+    cs,
+    fmt={
+        lev95: "95%",
+        lev68: "68%",
+        lev50: "50%"
+    },
+    fontsize=12
+    )
+
+    for t in labels:
+        t.set_bbox(dict(
+            facecolor="white",
+            edgecolor="none",
+            alpha=0.8,
+            pad=0.2
+        ))
 
 ax.axhline(0, linestyle='--', color='black', alpha=0.7)
 ax.axvline(1.0, linestyle=':', color='black', alpha=0.7)
 
-ax.set_xlabel(r"$r / R_{200}$")
-ax.set_ylabel(r"$v_r / \sigma_{\rm host}$")
-ax.set_xlim(0, 2)
+ax.set_xlabel(r"$r / R_{200}$", fontsize=18)
+ax.set_ylabel(r"$v_r / V_{200}$", fontsize=18)
+# ax.set_xlim(0, 2)
 ax.grid(True, alpha=0.3)
-ax.legend(fontsize=8)
+ax.legend(fontsize=16)
 
 plt.tight_layout()
 

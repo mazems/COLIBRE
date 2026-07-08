@@ -579,8 +579,8 @@ plt.plot(
     label=fr"Compactness threshold ($\lg{{\Sigma_{{1.5}}}} = {COMPACTNESS_CUT}$)"
 )
 
-plt.xlabel(r"lg(Stellar Mass / $M_{\odot}$)")
-plt.ylabel(r"lg(Half Mass Radius / kpc)")
+plt.xlabel(r"$\lg(M_\star / M_{\odot}$)")
+plt.ylabel(r"$\lg(R_{1/2} / \mathrm{kpc})$")
 plt.legend(fontsize=8)
 plt.grid(True)
 

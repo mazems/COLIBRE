@@ -278,7 +278,7 @@ if RUN_PLOT:
                    s=15, marker='d', c=exsitu_fracs[sag_mask], cmap=cmap,
                    zorder=110, label=f"simulated ancients (DoR > {EXTREME_DOR})")
         cbar = plt.colorbar(sc)
-        cbar.set_label("Ex-situ mass fraction")
+        cbar.set_label(r"$f_\mathrm{ex-situ}$")
         print(f"Plotted {int(np.sum(extreme_mask))} extreme central relics (DoR > {EXTREME_DOR}).")
     else:
         print(f"No ancients found with DoR > {EXTREME_DOR}.")
@@ -292,8 +292,8 @@ if RUN_PLOT:
     else:
         print(f"No relics found with DoR > {EXTREME_DOR}.")
 
-    ax.set_xlabel(r"$\log_{10}(M_\star / M_\odot)$")
-    ax.set_ylabel(r"$\log_{10}(R_{1/2} / \mathrm{kpc})$")
+    ax.set_xlabel(r"$\lg(M_\star / M_\odot)$")
+    ax.set_ylabel(r"$\lg(R_{1/2} / \mathrm{kpc})$")
     ax.grid(True)
     ax.legend(fontsize=9, loc='lower right')
 

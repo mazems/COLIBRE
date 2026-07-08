@@ -495,7 +495,7 @@ if os.path.exists(sigma_path):
         sigma_zz   = rows[:, 8]
 
         # your requested scalar sigma
-        sigma_sel = np.sqrt(sigma_rr**2 + sigma_pphi**2 + sigma_zz**2)
+        sigma_sel = np.sqrt((sigma_rr**2 + sigma_pphi**2 + sigma_zz**2)/3)
 
         # put back into full SOAP-aligned array
         sigma_full[row_idx] = sigma_sel
@@ -1929,7 +1929,7 @@ log_sigma_vals = log_sigma_full[mask_positive_full]
 #         fig.colorbar(cf, ax=ax_main, label='Density (KDE)')
 
 # ax_main.set_xlabel(r"Compactness (lg[$M_\odot \text{kpc}^{-1.5}$])")
-# ax_main.set_ylabel(r"$\lg[Z_* / Z_\odot]$")
+# ax_main.set_ylabel(r"$\lg[Z / H]$")
 # # ax_main.set_title("Compactness vs Ex-situ mass fraction — 2D median")
 # ax_main.grid(True)
 
@@ -1992,7 +1992,7 @@ log_sigma_vals = log_sigma_full[mask_positive_full]
 # ax_proj.plot(cbin_centers, cmed, color="C0", lw=2)
 # ax_proj.fill_between(cbin_centers, clow, chigh, color="C0", alpha=0.25)
 # ax_proj.set_xlabel(r"Compactness (lg[$M_\odot \text{kpc}^{-1.5}$])")
-# ax_proj.set_ylabel(r"$\lg[Z_* / Z_\odot]$")
+# ax_proj.set_ylabel(r"$\lg[Z / H]$")
 # # ax_proj.set_title("Projection: median & 16–84 pct")
 # ax_proj.grid(True)
 
