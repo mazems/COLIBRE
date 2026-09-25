@@ -37,7 +37,7 @@ comov_to_physical_length = 1.0 / (1.0 + ztarget)
 outdir = "plots_dor"
 os.makedirs(outdir, exist_ok=True)
 
-COMPACTNESS_CUT = 9.72
+COMPACTNESS_CUT = 9.75
 EXTREME_DOR = 0.6
 dor_column_candidates = ["DoR_t95"] #, "dor", "DoR_choice", "DoR_csv"]
 
@@ -526,31 +526,41 @@ def plot_dor_vs_quantity(x, y, xlabel, fname):
 # save_fig(fig, "mass_size_DoR.png")
 
 # mass-size plane colourec by DoR, same style as other plots
-fig = plt.figure(figsize=(8, 6))
+fig, ax = plt.subplots(figsize=(8, 6))
 
 # prepare colour map: use percentile range like in the metallicity plot
 cmap = plt.get_cmap("viridis")
 
 finite_mask = np.isfinite(matched_dor)
 if finite_mask.sum() > 0:
-    vmin = float(np.nanpercentile(matched_dor[finite_mask], 1))
-    vmax = float(np.nanpercentile(matched_dor[finite_mask], 99))
+    vmin = 0.0 #float(np.nanpercentile(matched_dor[finite_mask], 1))
+    vmax = 0.8 #float(np.nanpercentile(matched_dor[finite_mask], 99))
     if vmin == vmax:
         vmin, vmax = 0.0, 1.0
 else:
     vmin, vmax = 0.0, 1.0
 
-# coloured matched galaxies
-sc = plt.scatter(
-    m_logM,
-    m_logR,
-    c=matched_dor,
+
+# Sort by DoR so highest-DoR points appear on top of lower-DoR points.
+finite_mask = np.isfinite(matched_dor)
+
+sort_idx = np.argsort(matched_dor[finite_mask])
+x_plot = m_logM[finite_mask][sort_idx]
+y_plot = m_logR[finite_mask][sort_idx]
+dor_plot = matched_dor[finite_mask][sort_idx]
+
+sc = ax.scatter(
+    x_plot,
+    y_plot,
+    c=dor_plot,
     cmap=cmap,
     vmin=vmin,
     vmax=vmax,
     alpha=0.7,
     s=12,
-    edgecolors="none"
+    edgecolors="none",
+    zorder=3,
+    rasterized=True,
 )
 
 # overlay grey markers for missing DoR values
@@ -562,7 +572,9 @@ if finite_mask.sum() < len(matched_dor):
         color=(0.6, 0.6, 0.6),
         alpha=0.7,
         s=10,
-        label="no DoR data"
+        label="no DoR data",
+        zorder=2,
+        rasterized=True,
     )
 
 # background population
@@ -576,18 +588,20 @@ plt.plot(
     yr,
     linestyle="--",
     color="black",
-    label=fr"Compactness threshold ($\lg{{\Sigma_{{1.5}}}} = {COMPACTNESS_CUT}$)"
+    zorder=5,
+    label=f"compactness threshold " rf"$\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}}))"
+    rf" = {COMPACTNESS_CUT}$"
 )
 
-plt.xlabel(r"$\lg(M_\star / M_{\odot}$)")
-plt.ylabel(r"$\lg(R_{1/2} / \mathrm{kpc})$")
-plt.legend(fontsize=8)
+plt.xlabel(r"$\log_{{10}}(M_\star / \mathrm{M}_{\odot}$)")
+plt.ylabel(r"$\log_{{10}}(R_{1/2, \star} / \mathrm{kpc})$")
+plt.legend(fontsize=11)
 plt.grid(True)
 
 cbar = plt.colorbar(sc)
 cbar.set_label("DoR")
 
-outpath = os.path.join(outdir, "mass_size_DoR.png")
+outpath = os.path.join(outdir, "mass_size_DoR.pdf")
 plt.savefig(outpath, dpi=300, bbox_inches="tight")
 plt.close()
 

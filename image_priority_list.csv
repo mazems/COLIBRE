@@ -1,0 +1,141 @@
+HaloCatalogueIndex,TrackId_sample,n_extreme_quantities,extreme_quantities
+682377,682377,10,"DoR, MgFe, age_lum_gyr, age_mass_gyr, logM, logR, logZstar_loc, logZstar_rel, log_bh_ratio_corr, log_sigma"
+17910,17910,9,"MgFe, bh_mass_corr, exsitu_frac, logM, logR, logZstar_loc, logZstar_rel, log_bh_ratio_corr, log_sigma"
+139676,139676,9,"MgFe, bh_mass_corr, exsitu_frac, logM, logR, logZstar_loc, logZstar_rel, log_bh_ratio_corr, log_sigma"
+789267,789267,9,"MgFe, bh_mass_corr, exsitu_frac, logM, logR, logZstar_loc, logZstar_rel, log_bh_ratio_corr, log_sigma"
+3786109,3786109,8,"MgFe, bh_mass_corr, compactness, logM, logR, logZstar_loc, logZstar_rel, log_sigma"
+51474,51474,7,"bh_mass_corr, exsitu_frac, fexsitu_limited, logM, logR, log_bh_ratio_corr, log_sigma"
+80976,80976,7,"MgFe, bh_mass_corr, logM, logR, logZstar_loc, logZstar_rel, log_sigma"
+246865,246865,7,"MgFe, exsitu_frac, logM, logR, logZstar_loc, logZstar_rel, log_sigma"
+3173,3173,6,"bh_mass_corr, exsitu_frac, fexsitu_limited, logM, logR, log_sigma"
+40638,40638,6,"bh_mass_corr, exsitu_frac, fexsitu_limited, logM, logR, log_sigma"
+218313,218313,6,"exsitu_frac, logM, logR, logZstar_loc, logZstar_rel, log_sigma"
+325018,325018,6,"bh_mass_corr, exsitu_frac, logM, logR, log_bh_ratio_corr, log_sigma"
+304,304,5,"exsitu_frac, fexsitu_limited, logM, logR, log_sigma"
+8002,8002,5,"DoR, age_lum_gyr, age_mass_gyr, logZstar_loc, logZstar_rel"
+29113,29113,5,"DoR, bh_mass_corr, compactness, fexsitu_limited, logR"
+74285,74285,5,"MgFe, logM, logR, log_bh_ratio_corr, log_sigma"
+141036,141036,5,"DoR, age_lum_gyr, age_mass_gyr, compactness, log_ssfr"
+171673,171673,5,"DoR, MgFe, age_lum_gyr, age_mass_gyr, exsitu_frac"
+245505,245505,5,"bh_mass_corr, exsitu_frac, logM, logR, log_sigma"
+1782066,1782066,5,"DoR, MgFe, age_lum_gyr, age_mass_gyr, logZstar_loc"
+1870301,1870301,5,"bh_mass_corr, compactness, exsitu_frac, logZstar_rel, log_bh_ratio_corr"
+3299260,3299260,5,"MgFe, bh_mass_corr, logZstar_loc, logZstar_rel, log_bh_ratio_corr"
+11322651,11322651,5,"exsitu_frac, fexsitu_limited, logM, logZstar_loc, logZstar_rel"
+107,107,4,"bh_mass_corr, logR, log_bh_ratio_corr, log_sigma"
+553,553,4,"DoR, age_lum_gyr, age_mass_gyr, exsitu_frac"
+1685,1685,4,"bh_mass_corr, exsitu_frac, fexsitu_limited, logM"
+7997,7997,4,"DoR, MgFe, age_mass_gyr, logZstar_rel"
+18005,18005,4,"DoR, exsitu_frac, logM, logR"
+18408,18408,4,"DoR, MgFe, age_lum_gyr, age_mass_gyr"
+32330,32330,4,"bh_mass_corr, logM, log_bh_ratio_corr, log_sigma"
+44523,44523,4,"exsitu_frac, fexsitu_limited, logM, logR"
+50269,50269,4,"DoR, age_lum_gyr, age_mass_gyr, logZstar_loc"
+75441,75441,4,"age_mass_gyr, compactness, fexsitu_limited, log_sigma"
+436157,436157,4,"compactness, exsitu_frac, fexsitu_limited, log_bh_ratio_corr"
+1451575,1451575,4,"MgFe, age_mass_gyr, bh_mass_corr, logM"
+3198019,3198019,4,"age_lum_gyr, age_mass_gyr, compactness, log_ssfr"
+10223610,10223610,4,"age_lum_gyr, compactness, logZstar_loc, logZstar_rel"
+1317,1317,3,"DoR, age_lum_gyr, age_mass_gyr"
+3586,3586,3,"bh_mass_corr, logZstar_loc, log_bh_ratio_corr"
+4323,4323,3,"DoR, MgFe, log_ssfr"
+6334,6334,3,"DoR, age_lum_gyr, age_mass_gyr"
+23874,23874,3,"bh_mass_corr, logZstar_rel, log_bh_ratio_corr"
+42536,42536,3,"compactness, logZstar_loc, logZstar_rel"
+64391,64391,3,"bh_mass_corr, logM, log_bh_ratio_corr"
+100221,100221,3,"DoR, age_lum_gyr, age_mass_gyr"
+112514,112514,3,"exsitu_frac, logM, log_sigma"
+189514,189514,3,"logM, logR, log_sigma"
+189716,189716,3,"bh_mass_corr, logZstar_rel, log_bh_ratio_corr"
+308423,308423,3,"age_lum_gyr, age_mass_gyr, compactness"
+759540,759540,3,"bh_mass_corr, compactness, log_bh_ratio_corr"
+805018,805018,3,"age_mass_gyr, logZstar_loc, logZstar_rel"
+1107677,1107677,3,"bh_mass_corr, logR, log_bh_ratio_corr"
+1109054,1109054,3,"MgFe, bh_mass_corr, log_bh_ratio_corr"
+1172843,1172843,3,"exsitu_frac, fexsitu_limited, logR"
+552,552,2,"age_lum_gyr, age_mass_gyr"
+1350,1350,2,"fexsitu_limited, logR"
+3859,3859,2,"exsitu_frac, fexsitu_limited"
+4191,4191,2,"compactness, logZstar_rel"
+5612,5612,2,"exsitu_frac, fexsitu_limited"
+15398,15398,2,"bh_mass_corr, log_bh_ratio_corr"
+18028,18028,2,"age_lum_gyr, age_mass_gyr"
+23328,23328,2,"exsitu_frac, logZstar_rel"
+49186,49186,2,"MgFe, log_bh_ratio_corr"
+53300,53300,2,"age_lum_gyr, log_ssfr"
+59531,59531,2,"DoR, age_mass_gyr"
+61127,61127,2,"compactness, log_ssfr"
+64105,64105,2,"age_lum_gyr, logZstar_loc"
+83700,83700,2,"compactness, exsitu_frac"
+104782,104782,2,"compactness, logZstar_loc"
+145106,145106,2,"logR, log_sigma"
+189629,189629,2,"exsitu_frac, logR"
+190293,190293,2,"DoR, age_lum_gyr"
+215760,215760,2,"age_lum_gyr, log_ssfr"
+229037,229037,2,"bh_mass_corr, log_bh_ratio_corr"
+284458,284458,2,"DoR, age_lum_gyr"
+413656,413656,2,"logZstar_rel, log_sigma"
+702000,702000,2,"logM, logR"
+761509,761509,2,"compactness, logZstar_rel"
+775921,775921,2,"DoR, age_lum_gyr"
+789289,789289,2,"compactness, log_bh_ratio_corr"
+794862,794862,2,"compactness, logZstar_loc"
+884010,884010,2,"DoR, logZstar_rel"
+1095974,1095974,2,"bh_mass_corr, log_bh_ratio_corr"
+1125165,1125165,2,"age_lum_gyr, age_mass_gyr"
+3028815,3028815,2,"compactness, logZstar_loc"
+4107179,4107179,2,"logR, log_sigma"
+4679778,4679778,2,"DoR, age_mass_gyr"
+1415,1415,1,logM
+1970,1970,1,logZstar_rel
+2226,2226,1,compactness
+3843,3843,1,logZstar_rel
+6301,6301,1,log_sigma
+6818,6818,1,age_lum_gyr
+9659,9659,1,MgFe
+9952,9952,1,logZstar_rel
+14823,14823,1,log_bh_ratio_corr
+15531,15531,1,log_sigma
+19217,19217,1,logZstar_loc
+22568,22568,1,logZstar_rel
+39339,39339,1,logZstar_loc
+43678,43678,1,age_mass_gyr
+48958,48958,1,MgFe
+65590,65590,1,MgFe
+69297,69297,1,logM
+72033,72033,1,compactness
+74170,74170,1,MgFe
+75753,75753,1,DoR
+112637,112637,1,MgFe
+126915,126915,1,age_lum_gyr
+129308,129308,1,log_bh_ratio_corr
+133204,133204,1,age_lum_gyr
+140928,140928,1,age_mass_gyr
+154378,154378,1,DoR
+156087,156087,1,logZstar_loc
+171276,171276,1,DoR
+237565,237565,1,logZstar_loc
+239461,239461,1,age_mass_gyr
+435755,435755,1,age_mass_gyr
+460550,460550,1,MgFe
+645160,645160,1,log_ssfr
+682784,682784,1,compactness
+690249,690249,1,age_mass_gyr
+708413,708413,1,compactness
+717639,717639,1,compactness
+769618,769618,1,compactness
+798108,798108,1,MgFe
+808565,808565,1,MgFe
+809503,809503,1,compactness
+813496,813496,1,log_sigma
+964959,964959,1,log_bh_ratio_corr
+995106,995106,1,compactness
+1542414,1542414,1,age_mass_gyr
+1648535,1648535,1,DoR
+1896059,1896059,1,exsitu_frac
+1950115,1950115,1,log_sigma
+2022282,2022282,1,MgFe
+2604197,2604197,1,logZstar_loc
+2687587,2687587,1,age_lum_gyr
+5807583,5807583,1,DoR
+6098149,6098149,1,DoR

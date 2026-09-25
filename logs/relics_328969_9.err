@@ -1,0 +1,16 @@
+/home/mzemsch/miniconda3/envs/swift-conda/lib/python3.10/site-packages/swiftsimio/_array_functions.py:453: RuntimeWarning: Mixing arguments with and without cosmo_factors, continuing assuming provided cosmo_factor (a at a=0.9999999999999997) for all arguments.
+  warnings.warn(
+/home/mzemsch/miniconda3/envs/swift-conda/lib/python3.10/site-packages/swiftsimio/_array_functions.py:715: RuntimeWarning: Mixing arguments with and without cosmo_factors, continuing assuming provided cosmo_factor ((a**2.0)**0.5 at a=0.9999999999999997) for all arguments.
+  warnings.warn(
+/home/mzemsch/miniconda3/envs/swift-conda/lib/python3.10/site-packages/swiftsimio/_array_functions.py:715: RuntimeWarning: Mixing arguments with and without cosmo_factors, continuing assuming provided cosmo_factor (a at a=0.9999999999999997) for all arguments.
+  warnings.warn(
+/home/mzemsch/miniconda3/envs/swift-conda/lib/python3.10/site-packages/swiftsimio/_array_functions.py:461: RuntimeWarning: Mixing arguments with and without cosmo_factors, continuing assuming provided cosmo_factor (1 at a=0.9999999999999997) for all arguments.
+  warnings.warn(
+/home/mzemsch/miniconda3/envs/swift-conda/lib/python3.10/site-packages/swiftsimio/_array_functions.py:453: RuntimeWarning: Mixing arguments with and without cosmo_factors, continuing assuming provided cosmo_factor (a at a=0.9999999999999997) for all arguments.
+  warnings.warn(
+/home/mzemsch/miniconda3/envs/swift-conda/lib/python3.10/site-packages/swiftsimio/_array_functions.py:715: RuntimeWarning: Mixing arguments with and without cosmo_factors, continuing assuming provided cosmo_factor ((a**2.0)**0.5 at a=0.9999999999999997) for all arguments.
+  warnings.warn(
+/home/mzemsch/miniconda3/envs/swift-conda/lib/python3.10/site-packages/swiftsimio/_array_functions.py:715: RuntimeWarning: Mixing arguments with and without cosmo_factors, continuing assuming provided cosmo_factor (a at a=0.9999999999999997) for all arguments.
+  warnings.warn(
+/home/mzemsch/COLIBRE-analysis/PARTRIDGE/partridge.py:1260: RuntimeWarning: invalid value encountered in power
+  ((total_brightness - min_brightness_internal) / beta) ** lupton_exponent

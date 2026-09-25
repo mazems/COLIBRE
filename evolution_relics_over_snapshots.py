@@ -474,20 +474,24 @@ def summarize_track_evolution(hist: pd.DataFrame):
         g = g.sort_values("redshift", ascending=False)
 
         z2_rows = g[g["snapshot_file"] == "GalaxyProperties_SFR_GE_0_z2.0.txt"]
+        z15_rows = g[g["snapshot_file"] == "GalaxyProperties_SFR_GE_0_z1.5.txt"]
         z0_rows = g[g["snapshot_file"] == "GalaxyProperties_SFR_GE_0_z0.0.txt"]
 
-        if z2_rows.empty or z0_rows.empty:
+        if z2_rows.empty or z15_rows.empty or z0_rows.empty:
             continue
 
         z2 = z2_rows.iloc[0]
+        z15 = z15_rows.iloc[0]
         z0 = z0_rows.iloc[0]
 
         rows.append(
             {
                 "track_id": track_id,
                 "compactness_z2": z2["compactness_sigma_1p5"],
+                "compactness_z15": z15["compactness_sigma_1p5"],
                 "compactness_z0": z0["compactness_sigma_1p5"],
                 "delta_compactness": z0["compactness_sigma_1p5"] - z2["compactness_sigma_1p5"],
+                "delta_compactness_z15": z0["compactness_sigma_1p5"] - z15["compactness_sigma_1p5"],
 
                 "log10_mstar_z2": z2["log10_stellar_mass"],
                 "log10_mstar_z0": z0["log10_stellar_mass"],
@@ -790,6 +794,422 @@ def plot_compactness_evolution_panels(hist: pd.DataFrame, summary: pd.DataFrame,
     fig.savefig(outdir / "compactness_evolution_panels.pdf")
     plt.close(fig)
 
+def plot_bh_mass_evolution_panels(
+    hist: pd.DataFrame,
+    summary: pd.DataFrame,
+    outdir: Path
+) -> None:
+
+    summary = summary.copy().set_index("track_id")
+
+    group_order = [
+        ("low", "tab:green", r"$0 \leq f_{\rm exsitu} < 0.1$"),
+        ("mid", "tab:orange", r"$0.1 \leq f_{\rm exsitu} < 0.4$"),
+        ("high", "tab:purple", r"$f_{\rm exsitu} \geq 0.4$"),
+    ]
+
+    fig, axes = plt.subplots(
+        1, 3,
+        figsize=(18, 6),
+        sharex=True,
+        sharey=True
+    )
+
+    for ax, (target_group, color, label) in zip(axes, group_order):
+
+        for track_id, g in hist.groupby("track_id"):
+
+            g = g.sort_values("redshift", ascending=False)
+
+            x = g["lookback_time_gyr"].to_numpy(dtype=float)
+            y = g["bh_mass"].to_numpy(dtype=float)
+
+            # Plot in log-space, but preserve BH=0 as missing
+            y_plot = np.where(y > 0, np.log10(y), np.nan)
+
+            if np.all(np.isnan(y_plot)):
+                continue
+
+            if track_id not in summary.index:
+                ax.plot(
+                    x, y_plot,
+                    lw=1.0,
+                    alpha=0.10,
+                    color="0.75"
+                )
+                continue
+
+            exf = summary.loc[track_id, "exsitu_fraction"]
+            grp = exsitu_group(exf)
+
+            if grp == target_group:
+                ax.plot(
+                    x, y_plot,
+                    lw=1.5,
+                    alpha=0.95,
+                    color=color
+                )
+                ax.scatter(
+                    x, y_plot,
+                    s=18,
+                    color=color
+                )
+            else:
+                ax.plot(
+                    x, y_plot,
+                    lw=1.0,
+                    alpha=0.10,
+                    color="0.75"
+                )
+
+        ax.set_title(label)
+        ax.set_xlabel("Lookback time [Gyr]")
+        ax.grid(alpha=0.25)
+
+    axes[0].set_ylabel(
+        r"$\lg(M_{\rm BH}/M_\odot)$"
+    )
+
+    # shared redshift axis
+    ax_top = axes[1].twiny()
+
+    z_ticks = np.array(
+        [0, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8],
+        dtype=float
+    )
+
+    lb_ticks = COSMO.lookback_time(z_ticks).value
+
+    ax_top.set_xlim(axes[1].get_xlim())
+    ax_top.set_xticks(lb_ticks)
+    ax_top.set_xticklabels([f"{z:g}" for z in z_ticks])
+    ax_top.set_xlabel("Redshift")
+
+    fig.tight_layout()
+
+    fig.savefig(
+        outdir / "bh_mass_evolution_panels.png",
+        dpi=200
+    )
+    fig.savefig(
+        outdir / "bh_mass_evolution_panels.pdf"
+    )
+
+    plt.close(fig)
+
+def plot_bh_evolution_panels(
+    hist: pd.DataFrame,
+    summary: pd.DataFrame,
+    outdir: Path,
+) -> None:
+
+    summary = summary.copy().set_index("track_id")
+
+    group_order = [
+        ("low", "tab:green", r"$0 \leq f_{\rm exsitu} < 0.1$"),
+        ("mid", "tab:orange", r"$0.1 \leq f_{\rm exsitu} < 0.4$"),
+        ("high", "tab:purple", r"$f_{\rm exsitu} \geq 0.4$"),
+    ]
+
+    fig, axes = plt.subplots(
+        1, 3,
+        figsize=(18, 6),
+        sharex=True,
+        sharey=True,
+    )
+
+    for ax, (target_group, color, label) in zip(axes, group_order):
+
+        for track_id, g in hist.groupby("track_id"):
+
+            g = g.sort_values("redshift", ascending=False)
+
+            x = g["lookback_time_gyr"].to_numpy(dtype=float)
+            y = g["bh_to_stellar_mass"].to_numpy(dtype=float)
+
+            if track_id not in summary.index:
+                continue
+
+            # ex-situ group of this galaxy
+            grp = summary.loc[track_id, "exsitu_group"]
+
+            if grp == target_group:
+
+                # Positive BH masses
+                pos = np.isfinite(y) & (y > 0)
+
+                ax.plot(
+                    x[pos],
+                    y[pos],
+                    lw=1.5,
+                    alpha=0.9,
+                    color=color,
+                )
+
+                ax.scatter(
+                    x[pos],
+                    y[pos],
+                    s=14,
+                    color=color,
+                )
+
+                # Explicitly mark BH = 0 snapshots
+                zero = np.isfinite(y) & (y == 0)
+
+                if np.any(zero):
+                    ax.scatter(
+                        x[zero],
+                        np.full(np.sum(zero), 1e-8),
+                        marker="v",
+                        s=25,
+                        color=color,
+                    )
+
+            else:
+                # Other groups in grey
+                pos = np.isfinite(y) & (y > 0)
+
+                ax.plot(
+                    x[pos],
+                    y[pos],
+                    lw=1.0,
+                    alpha=0.10,
+                    color="0.75",
+                )
+
+                zero = np.isfinite(y) & (y == 0)
+
+                if np.any(zero):
+                    ax.scatter(
+                        x[zero],
+                        np.full(np.sum(zero), 1e-8),
+                        marker="v",
+                        s=12,
+                        color="0.75",
+                        alpha=0.10,
+                    )
+
+        ax.set_yscale("log")
+        ax.set_title(label)
+        ax.set_xlabel("Lookback time [Gyr]")
+        ax.grid(alpha=0.25)
+
+    axes[0].set_ylabel(r"$M_{\rm BH}/M_\star$")
+
+    # Redshift axis
+    ax_top = axes[1].twiny()
+
+    z_ticks = np.array(
+        [0, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8],
+        dtype=float,
+    )
+
+    lb_ticks = COSMO.lookback_time(z_ticks).value
+
+    ax_top.set_xlim(axes[1].get_xlim())
+    ax_top.set_xticks(lb_ticks)
+    ax_top.set_xticklabels([f"{z:g}" for z in z_ticks])
+    ax_top.set_xlabel("Redshift")
+
+    fig.tight_layout()
+
+    fig.savefig(
+        outdir / "bh_to_stellar_evolution_panels.png",
+        dpi=200,
+    )
+
+    fig.savefig(
+        outdir / "bh_to_stellar_evolution_panels.pdf"
+    )
+
+    plt.close(fig)
+
+def plot_stellar_mass_evolution_panels(
+    hist: pd.DataFrame,
+    summary: pd.DataFrame,
+    outdir: Path,
+) -> None:
+
+    summary = summary.copy().set_index("track_id")
+
+    group_order = [
+        ("low", "tab:green", r"$0 \leq f_{\rm exsitu} < 0.1$"),
+        ("mid", "tab:orange", r"$0.1 \leq f_{\rm exsitu} < 0.4$"),
+        ("high", "tab:purple", r"$f_{\rm exsitu} \geq 0.4$"),
+    ]
+
+    fig, axes = plt.subplots(
+        1, 3,
+        figsize=(18, 6),
+        sharex=True,
+        sharey=True,
+    )
+
+    for ax, (target_group, color, label) in zip(axes, group_order):
+
+        for track_id, g in hist.groupby("track_id"):
+
+            g = g.sort_values("redshift", ascending=False)
+
+            x = g["lookback_time_gyr"].to_numpy(dtype=float)
+            y = g["log10_stellar_mass"].to_numpy(dtype=float)
+
+            if track_id not in summary.index:
+                continue
+
+            grp = summary.loc[track_id, "exsitu_group"]
+
+            if grp == target_group:
+                ax.plot(
+                    x,
+                    y,
+                    lw=1.5,
+                    alpha=0.9,
+                    color=color,
+                )
+                ax.scatter(
+                    x,
+                    y,
+                    s=14,
+                    color=color,
+                )
+
+            else:
+                ax.plot(
+                    x,
+                    y,
+                    lw=1.0,
+                    alpha=0.10,
+                    color="0.75",
+                )
+
+        ax.set_title(label)
+        ax.set_xlabel("Lookback time [Gyr]")
+        ax.grid(alpha=0.25)
+
+    axes[0].set_ylabel(r"$\log_{10}(M_\star/M_\odot)$")
+
+    ax_top = axes[1].twiny()
+
+    z_ticks = np.array(
+        [0, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8],
+        dtype=float,
+    )
+
+    lb_ticks = COSMO.lookback_time(z_ticks).value
+
+    ax_top.set_xlim(axes[1].get_xlim())
+    ax_top.set_xticks(lb_ticks)
+    ax_top.set_xticklabels([f"{z:g}" for z in z_ticks])
+    ax_top.set_xlabel("Redshift")
+
+    fig.tight_layout()
+
+    fig.savefig(
+        outdir / "stellar_mass_evolution_panels.png",
+        dpi=200,
+    )
+
+    fig.savefig(
+        outdir / "stellar_mass_evolution_panels.pdf"
+    )
+
+    plt.close(fig)
+
+def plot_size_evolution_panels(
+    hist: pd.DataFrame,
+    summary: pd.DataFrame,
+    outdir: Path,
+) -> None:
+
+    summary = summary.copy().set_index("track_id")
+
+    group_order = [
+        ("low", "tab:green", r"$0 \leq f_{\rm exsitu} < 0.1$"),
+        ("mid", "tab:orange", r"$0.1 \leq f_{\rm exsitu} < 0.4$"),
+        ("high", "tab:purple", r"$f_{\rm exsitu} \geq 0.4$"),
+    ]
+
+    fig, axes = plt.subplots(
+        1, 3,
+        figsize=(18, 6),
+        sharex=True,
+        sharey=True,
+    )
+
+    for ax, (target_group, color, label) in zip(axes, group_order):
+
+        for track_id, g in hist.groupby("track_id"):
+
+            g = g.sort_values("redshift", ascending=False)
+
+            x = g["lookback_time_gyr"].to_numpy(dtype=float)
+            y = g["log10_rhalf"].to_numpy(dtype=float)
+
+            if track_id not in summary.index:
+                continue
+
+            grp = summary.loc[track_id, "exsitu_group"]
+
+            if grp == target_group:
+                ax.plot(
+                    x,
+                    y,
+                    lw=1.5,
+                    alpha=0.9,
+                    color=color,
+                )
+                ax.scatter(
+                    x,
+                    y,
+                    s=14,
+                    color=color,
+                )
+
+            else:
+                ax.plot(
+                    x,
+                    y,
+                    lw=1.0,
+                    alpha=0.10,
+                    color="0.75",
+                )
+
+        ax.set_title(label)
+        ax.set_xlabel("Lookback time [Gyr]")
+        ax.grid(alpha=0.25)
+
+    axes[0].set_ylabel(r"$\log_{10}(R_{50}/\mathrm{kpc})$")
+
+    ax_top = axes[1].twiny()
+
+    z_ticks = np.array(
+        [0, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8],
+        dtype=float,
+    )
+
+    lb_ticks = COSMO.lookback_time(z_ticks).value
+
+    ax_top.set_xlim(axes[1].get_xlim())
+    ax_top.set_xticks(lb_ticks)
+    ax_top.set_xticklabels([f"{z:g}" for z in z_ticks])
+    ax_top.set_xlabel("Redshift")
+
+    fig.tight_layout()
+
+    fig.savefig(
+        outdir / "size_evolution_panels.png",
+        dpi=200,
+    )
+
+    fig.savefig(
+        outdir / "size_evolution_panels.pdf"
+    )
+
+    plt.close(fig)
+
+
+
 def plot_ssfr_evolution(hist: pd.DataFrame, outdir: Path, max_highlight: int = 12) -> None:
     fig, ax = plt.subplots(figsize=(10, 7))
 
@@ -939,6 +1359,70 @@ def plot_central_satellite_transitions(hist: pd.DataFrame, outdir: Path) -> None
     fig.savefig(outdir / "central_fraction_vs_redshift.pdf")
     plt.close(fig)
 
+def plot_high_BH_ratio_galaxies(hist, top_ids, outdir):
+
+    fig, (ax1, ax2) = plt.subplots(
+        1,2,
+        figsize=(12,5),
+        sharex=True
+    )
+
+    for tid, g in hist.groupby("track_id"):
+
+        if tid not in top_ids:
+            continue
+
+        g = g.sort_values("redshift", ascending=False)
+
+        x = g["lookback_time_gyr"]
+
+        ax1.plot(
+            x,
+            g["log10_stellar_mass"],
+            lw=2
+        )
+
+        y = np.where(
+            g["bh_mass"]>0,
+            np.log10(g["bh_mass"]),
+            np.nan
+        )
+
+        pos = g["bh_mass"] > 0
+
+        ax2.plot(
+            x[pos],
+            np.log10(g.loc[pos, "bh_mass"]),
+            lw=2,
+            label=str(tid),
+        )
+
+        zero = g["bh_mass"] == 0
+
+        if zero.any():
+            ax2.scatter(
+                x[zero],
+                np.full(zero.sum(), 3.0),   # place them below the plotted range
+                marker="v",
+                s=30,
+            )
+
+    ax1.set_ylabel(r"$\log M_\star$")
+    ax2.set_ylabel(r"$\log M_{\rm BH}$")
+
+    ax1.set_xlabel("Lookback time [Gyr]")
+    ax2.set_xlabel("Lookback time [Gyr]")
+
+    ax2.legend(fontsize=6)
+
+    fig.tight_layout()
+
+    fig.savefig(
+        outdir/"highest_BH_ratio_tracks.png",
+        dpi=200
+    )
+
+    plt.close(fig)
 
 def make_animation(hist: pd.DataFrame, outdir: Path) -> None:
     try:
@@ -1133,38 +1617,125 @@ def main() -> None:
 
     summary["exsitu_group"] = summary["exsitu_fraction"].apply(exsitu_group)
 
-    print("\nCompactness medians by ex-situ group")
-    print("------------------------------------")
+    topBH = (
+        summary
+        .sort_values("bh_to_stellar_z0", ascending=False)
+        .head(15)
+    )
+    print("\nHighest BH/M* galaxies")
+    print(
+        topBH[
+            [
+                "track_id",
+                "bh_to_stellar_z0",
+                "log10_mstar_z2",
+                "log10_mstar_z0",
+                "delta_log10_mstar",
+            ]
+        ].to_string(index=False)
+    )
+
+    top_ids = set(topBH["track_id"])
+
+    print("\nMedian evolution by ex-situ group")
+    print("---------------------------------")
 
     group_rows = []
+
     for grp in ["low", "mid", "high"]:
+
         s = summary[summary["exsitu_group"] == grp].copy()
+
         if s.empty:
             print(f"{grp:4s}: no galaxies")
             continue
 
-        med_z2 = float(np.nanmedian(s["compactness_z2"]))
-        med_z0 = float(np.nanmedian(s["compactness_z0"]))
-        delta_med = med_z0 - med_z2
+        # Compactness
+        compact_z2 = np.nanmedian(s["compactness_z2"])
+        compact_z15 = np.nanmedian(s["compactness_z15"])
+        compact_z0 = np.nanmedian(s["compactness_z0"])
+        delta_compact = compact_z0 - compact_z2
+        delta_compact15 = compact_z0 - compact_z15
+
+        # Stellar mass
+        mass_z2 = np.nanmedian(s["log10_mstar_z2"])
+        mass_z0 = np.nanmedian(s["log10_mstar_z0"])
+        delta_mass = mass_z0 - mass_z2
+
+        # Size
+        size_z2 = np.nanmedian(s["log10_rhalf_z2"])
+        size_z0 = np.nanmedian(s["log10_rhalf_z0"])
+        delta_size = size_z0 - size_z2
+
+        # BH / stellar mass
+        bh_z2 = np.nanmedian(s["bh_to_stellar_z2"])
+        bh_z0 = np.nanmedian(s["bh_to_stellar_z0"])
+        delta_bh = bh_z0 - bh_z2
 
         group_rows.append({
             "exsitu_group": grp,
-            "median_compactness_z2": med_z2,
-            "median_compactness_z0": med_z0,
-            "delta_median_compactness": delta_med,
             "n_galaxies": len(s),
+
+            "median_compactness_z2": compact_z2,
+            "median_compactness_z0": compact_z0,
+            "delta_median_compactness": delta_compact,
+            "median_compactness_z15": compact_z15,
+            "delta_median_compactness_z15": delta_compact15,
+
+            "median_log10_mstar_z2": mass_z2,
+            "median_log10_mstar_z0": mass_z0,
+            "delta_median_log10_mstar": delta_mass,
+
+            "median_log10_rhalf_z2": size_z2,
+            "median_log10_rhalf_z0": size_z0,
+            "delta_median_log10_rhalf": delta_size,
+
+            "median_bh_to_stellar_z2": bh_z2,
+            "median_bh_to_stellar_z0": bh_z0,
+            "delta_median_bh_to_stellar": delta_bh,
         })
 
+        print(f"\n{grp}")
+        print(f"  N                  = {len(s)}")
+
         print(
-            f"{grp:4s}: "
-            f"z2={med_z2:.3f}, "
-            f"z0={med_z0:.3f}, "
-            f"delta={delta_med:.3f}, "
-            f"N={len(s)}"
+            f"  compactness (z=2→0):   "
+            f"z2={compact_z2:.3f}, "
+            f"z0={compact_z0:.3f}, "
+            f"Δ={delta_compact:.3f}"
+        )
+
+        print(
+            f"  compactness (z=1.5→0): "
+            f"z1.5={compact_z15:.3f}, "
+            f"z0={compact_z0:.3f}, "
+            f"Δ={delta_compact15:.3f}"
+        )
+
+        print(
+            f"  log M*:      z2={mass_z2:.3f}, "
+            f"z0={mass_z0:.3f}, "
+            f"delta={delta_mass:.3f}"
+        )
+
+        print(
+            f"  log R50:     z2={size_z2:.3f}, "
+            f"z0={size_z0:.3f}, "
+            f"delta={delta_size:.3f}"
+        )
+
+        print(
+            f"  BH/M*:       z2={bh_z2:.3e}, "
+            f"z0={bh_z0:.3e}, "
+            f"delta={delta_bh:.3e}"
         )
 
     group_summary = pd.DataFrame(group_rows)
-    group_summary.to_csv(args.output_dir / "compactness_group_medians.csv", index=False)
+
+    group_summary.to_csv(
+        args.output_dir / "evolution_group_medians.csv",
+        index=False,
+    )
 
     summary_out = args.output_dir / "relic_track_summary.csv"
     summary.to_csv(summary_out, index=False)
@@ -1190,6 +1761,13 @@ def main() -> None:
     # strip_ids = set(strip_events["track_id"].astype(int)) if not strip_events.empty else set()
 
     plot_compactness_evolution_panels(hist, summary, args.output_dir) #plot_compactness_evolution(hist, args.output_dir, highlight_ids=strip_ids)
+    plot_bh_mass_evolution_panels(hist, summary, args.output_dir)
+    plot_bh_evolution_panels(hist, summary, args.output_dir)
+    plot_stellar_mass_evolution_panels(hist, summary, args.output_dir)
+    plot_size_evolution_panels(hist, summary, args.output_dir)
+
+    plot_high_BH_ratio_galaxies(hist, top_ids, args.output_dir)
+
     plot_ssfr_evolution(hist, args.output_dir, max_highlight=args.max_highlight)
     plot_mass_size_paths(hist, args.output_dir, max_highlight=args.max_highlight)
     plot_central_satellite_transitions(hist, args.output_dir)

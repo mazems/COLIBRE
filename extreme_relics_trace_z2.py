@@ -2,836 +2,1243 @@
 """
 extreme_relics_trace_z2.py
 
-Find extreme relics at z=0 (from your DoR CSV + SOAP match), follow their TrackId back to z~2
-(snapshot label '0076'), gather basic properties (mass, r50, BH mass, IsCentral) at z=0 and z=2,
-and write a CSV summarising the comparison.
+Select extreme z=0 relic galaxies from the DoR catalogue, match them to z=0
+SOAP/HBT TrackIDs, follow those same TrackIDs to snapshot 0076 (z~2), and
+write a compact z=0 -> z=2 comparison table.
 
-Designed to be small, robust and memory-friendly (chunked TrackId scan where needed).
-Depends on your existing `common.read_group_data_colibre` helper and on h5py/pandas/numpy.
+The script also generates z=2 diagnostic plots for the SAME 490 (or however
+many) z=0 extreme relics, rather than selecting a new population at z=2.
 
-Output:
-  out/extreme_relics_z0_to_z2_summary.csv
+Outputs
+-------
+out/extreme_relics_z0_to_z2_summary.csv
+out/z2_BH_ratio_extremes.png
+out/z2_mass_size_extremes.png
+out/z2_compactness_extremes.png
+out/z2_central_fraction.txt
+
+Optional host / velocity plots are produced only if those quantities are
+available and finite.
+
+Assumptions
+-----------
+- Z0_SNAP = 0127 is z=0.
+- Z2_SNAP = 0076 is z~2.
+- DoR catalogue IDs match the z=0 SOAP HaloCatalogueIndex.
+- TrackID is HBTplus/TrackId.
+- Stellar masses and BH masses are in the simulation mass unit converted by Mu.
+- Half-mass radii are comoving in the raw SOAP data and are converted to
+  physical kpc with 1/(1+z) * 1e3.
 """
 from __future__ import annotations
+
 import os
 import sys
-import csv
-import math
-import gc
-from collections import defaultdict
+from pathlib import Path
+from typing import Iterable, Optional
+
+import h5py
 import numpy as np
 import pandas as pd
-import h5py
+import matplotlib.pyplot as plt
 
-# adjust to your environment
-MODEL_NAME = 'L0200N3008/THERMAL_AGN/'
-MODEL_DIR = '/mnt/su3-pro/colibre/' + MODEL_NAME
-OUTDIR = 'out'
-os.makedirs(OUTDIR, exist_ok=True)
+# -----------------------------------------------------------------------------
+# Configuration
+# -----------------------------------------------------------------------------
+MODEL_NAME = "L0200N3008/THERMAL_AGN/"
+MODEL_DIR = "/mnt/su3-pro/colibre/" + MODEL_NAME
+OUTDIR = Path("out")
+OUTDIR.mkdir(parents=True, exist_ok=True)
 
 CSV_DOR = "sfh_times_all_with_DoR_variants_corrected.csv.gz"
-Z0_SNAP = '0127'   # z=0 snapshot label (used to produce your original matched arrays)
-Z2_SNAP = '0076'   # z~2 snapshot label in your mapping
+Z0_SNAP = "0127"
+Z2_SNAP = "0076"
+
 MIN_STELLAR_MASS = 1e9
 EXTREME_DOR = 0.6
-
-# chunk size when scanning big HDF5 datasets (tweak if needed)
+COMPACTNESS_CUT = 9.75
 CHUNK = 80_000
 
-# Unit conversions (same convention used in your scripts)
-# NOTE: these match how you convert masses, radii, times; velocity conversion below follows same pattern
-Mu = 1.988e43 / 1.989e33       # sim mass unit -> Msun
-tu = 3.086e19 / 3.154e7        # time unit -> yr
-# comoving -> physical factor will be applied per snapshot if needed (z-dependent)
-# We will treat positions scaled as comoving * (1/(1+z)) * 1e3 -> kpc and velocities similarly
+# Same conversion convention as your existing scripts.
+Mu = 1.988e43 / 1.989e33       # simulation mass unit -> Msun
+tu = 3.086e19 / 3.154e7        # simulation time unit -> yr
 
-# helper to try candidate dataset names in HDF5 groups
-def find_dataset_in_group(group, candidates):
+# -----------------------------------------------------------------------------
+# HDF5 helpers
+# -----------------------------------------------------------------------------
+def find_dataset_in_group(group: h5py.Group, candidates: Iterable[str]) -> Optional[str]:
+    """Return the first matching dataset path from a list of candidate names."""
+    candidates = list(candidates)
+
     for cand in candidates:
-        # try direct presence
         if cand in group:
             return cand
-        # try under "InputHalos" or nested names
         if "InputHalos" in group and cand in group["InputHalos"]:
             return "InputHalos/" + cand
-    # fallback: try scanning top-level keys for something similar
-    for k in group.keys():
-        if any(s in k for s in candidates):
-            return k
+
+    # Conservative fallback: search one level down for a name containing a
+    # useful keyword. Do not make arbitrary recursive guesses.
+    for key in group.keys():
+        if any(token.lower() in key.lower() for token in candidates):
+            return key
+
     return None
 
-# read the DoR CSV and get dict subhalo_id -> DoR
-if not os.path.exists(CSV_DOR):
-    raise SystemExit(f"DoR CSV not found: {CSV_DOR}")
-print("Loading DoR CSV:", CSV_DOR)
-df_dor = pd.read_csv(CSV_DOR, low_memory=False)
-# find ID column heuristically
-id_col = None
-for c in ("subhalo_id", "HaloCatalogueIndex", "subhaloId", "HaloIndex", "track_id", "TrackId"):
-    if c in df_dor.columns:
-        id_col = c
-        break
-if id_col is None:
-    id_col = df_dor.columns[0]
-    print("Warning: couldn't find canonical ID column, using:", id_col)
-
-# normalize numeric ids
-s = df_dor[id_col].astype(str).str.replace("\r", "").str.strip()
-df_dor["_subid_num"] = pd.to_numeric(s, errors="coerce").astype("Int64")
-df_dor = df_dor[df_dor["_subid_num"].notna()].copy()
-df_dor["subhalo_id"] = df_dor["_subid_num"].astype("int64")
-df_dor.drop(columns=["_subid_num"], inplace=True)
-
-# find a DoR column
-dor_col = None
-for cand in ("DoR_t95", "DoR_t90", "DoR_t998", "DoR", "DoR_tfin"):
-    if cand in df_dor.columns:
-        dor_col = cand; break
-if dor_col is None:
-    for c in df_dor.columns:
-        if c.lower().startswith("dor"):
-            dor_col = c; break
-if dor_col is None:
-    raise SystemExit("No DoR-like column found in CSV.")
-print("Using DoR column:", dor_col)
-
-# build lookup
-dor_lookup = {}
-for _, row in df_dor.iterrows():
-    try:
-        sid = int(row["subhalo_id"])
-        v = row.get(dor_col, np.nan)
-        if pd.isna(v):
-            continue
-        dor_lookup[sid] = float(v)
-    except Exception:
-        continue
-print("Loaded DoR entries:", len(dor_lookup))
-
-# ------------------------- Read z=0 SOAP to find matched SOAP rows and TrackIds -------------------------
-print("Reading z=0 SOAP (minimal fields) via common.read_group_data_colibre...")
-
-# import your helper; script expects common to be importable (same as your pipeline)
-try:
-    import common
-except Exception as e:
-    raise SystemExit("Couldn't import `common`. Run this script from your project where `common` is available.") from e
-
-# fields to request at z=0 (same as your original)
-fields_gal = {'ExclusiveSphere/50kpc': (
-    'StellarMass', 'HalfMassRadiusStars', 'CentreOfMass', 'MostMassiveBlackHoleMass', 'CentreOfMassVelocity'
-)}
-fields_id = {'InputHalos': ('HaloCatalogueIndex', 'IsCentral', 'HBTplus/TrackId')}
-
-h5_gal = common.read_group_data_colibre(MODEL_DIR, Z0_SNAP, fields_gal)
-h5_id = common.read_group_data_colibre(MODEL_DIR, Z0_SNAP, fields_id)
-
-(m30, r50, centers0, bh_mass0_raw, comvel0_raw) = h5_gal
-(halo_index_all, is_central_all, track_id_all) = h5_id
-
-# coerce to numpy arrays and apply units
-m30 = np.asarray(m30).ravel() * Mu
-r50 = np.asarray(r50).ravel() * (1.0 / (1.0 + 0.0)) * 1e3   # z=0 -> kpc
-centers0 = np.asarray(centers0) * (1.0 / (1.0 + 0.0)) * 1e3
-bh_mass0 = np.asarray(bh_mass0_raw).ravel() * Mu
-# velocities: keep raw array for now (will convert later if present)
-comvel0 = np.asarray(comvel0_raw)
-try:
-    if comvel0.ndim == 1 and comvel0.size % 3 == 0:
-        comvel0 = comvel0.reshape((-1,3))
-except Exception:
-    pass
-
-halo_index_all = np.asarray(halo_index_all).ravel()
-is_central_all = np.asarray(is_central_all).ravel().astype(bool)
-track_id_all = np.asarray(track_id_all).ravel()
-
-# select by MIN_STELLAR_MASS
-sel = np.where(m30 >= MIN_STELLAR_MASS)[0]
-if sel.size == 0:
-    raise SystemExit("No z=0 galaxies above MIN_STELLAR_MASS.")
-print("Selected z=0 SOAP rows (m >= MIN_STELLAR_MASS):", sel.size)
-
-# map DoR (dor_lookup keys are subhalo id values that should match halo_index entries)
-halo_idx_selected = halo_index_all[sel].astype(int)
-# Try direct mapping halo_idx -> dor_lookup
-dor_for_selected = np.array([dor_lookup.get(int(h), np.nan) for h in halo_idx_selected], dtype=float)
-matched_positions = np.where(np.isfinite(dor_for_selected))[0]
-print(f"Matched DoR entries for selected SOAP rows: {matched_positions.size} / {halo_idx_selected.size}")
-
-if matched_positions.size == 0:
-    # try +/-1 fallback (common off-by-one convention)
-    dor_try = np.array([dor_lookup.get(int(h-1), np.nan) for h in halo_idx_selected], dtype=float)
-    if np.any(np.isfinite(dor_try)):
-        dor_for_selected = dor_try
-        matched_positions = np.where(np.isfinite(dor_for_selected))[0]
-        print("Matched after halo_idx-1 fallback:", matched_positions.size)
-    else:
-        dor_try2 = np.array([dor_lookup.get(int(h+1), np.nan) for h in halo_idx_selected], dtype=float)
-        if np.any(np.isfinite(dor_try2)):
-            dor_for_selected = dor_try2
-            matched_positions = np.where(np.isfinite(dor_for_selected))[0]
-            print("Matched after halo_idx+1 fallback:", matched_positions.size)
-
-# aligned arrays (for matched subset)
-sel_global_idx = sel[matched_positions]              # indices into the full SOAP arrays
-z0_track_matched = track_id_all[sel_global_idx]     # TrackId for matched objects
-z0_haloidx_matched = halo_idx_selected[matched_positions]
-z0_iscentral = is_central_all[sel_global_idx]
-z0_mass = m30[sel_global_idx]
-z0_r50 = r50[sel_global_idx]
-z0_bh = bh_mass0[sel_global_idx]
-z0_center = centers0[sel_global_idx]
-# velocities if present and shaped correctly: convert to km/s using same scaling pattern you used elsewhere.
-# SOAP velocity units -> convert to km/s: we follow same recipe as in your other script:
-# centre_of_mass_vel (raw) * comov_to_physical_length * 1e3 / tu  -> km/s (with z applied)
-def convert_raw_vel_to_kms(raw_vel, z_snap):
-    if raw_vel is None:
-        return None
-    arr = np.asarray(raw_vel)
-    # coerce shape
-    if arr.ndim == 1 and arr.size % 3 == 0:
-        arr = arr.reshape((-1,3))
-    if arr.ndim != 2 or arr.shape[1] != 3:
-        return None
-    comov_to_physical = 1.0 / (1.0 + z_snap)
-    # same pattern as you used earlier
-    return arr * comov_to_physical * 1e3 / tu
-
-if comvel0 is not None and comvel0.size > 0:
-    comvel0_kms = convert_raw_vel_to_kms(comvel0, 0.0)
-else:
-    comvel0_kms = None
-
-# pick extremes at z0
-mask_extreme = (dor_for_selected > EXTREME_DOR) & np.isfinite(dor_for_selected)
-n_extreme = int(np.sum(mask_extreme))
-print(f"Extremes at z0 (DoR>{EXTREME_DOR}): {n_extreme}")
-if n_extreme == 0:
-    print("No extremes matched - exiting.")
-    sys.exit(0)
-
-# build a set of tracks (finite)
-tracks_to_find = set(int(t) for t in z0_track_matched[mask_extreme] if np.isfinite(t))
-print("Tracks to follow (sample up to 20):", list(tracks_to_find)[:20])
-
-# ------------------------- Scan z=2 snapshot by TrackId (chunked) -------------------------
-# We'll attempt to read TrackId, HaloCatalogueIndex and IsCentral from z=2 file and record matches.
-
-def find_snapshot_path(snap_label):
+def find_snapshot_path(snap_label: str) -> Optional[str]:
+    """Locate SOAP-HBT first, then SOAP."""
     p1 = os.path.join(MODEL_DIR, "SOAP-HBT", f"halo_properties_{snap_label}.hdf5")
-    p2 = os.path.join(MODEL_DIR, "SOAP",     f"halo_properties_{snap_label}.hdf5")
+    p2 = os.path.join(MODEL_DIR, "SOAP", f"halo_properties_{snap_label}.hdf5")
     if os.path.exists(p1):
         return p1
     if os.path.exists(p2):
         return p2
     return None
 
+def safe_read_dataset(ds: Optional[h5py.Dataset], indices: np.ndarray) -> np.ndarray:
+    """Read only selected rows from a dataset; return NaNs if unavailable."""
+    n = len(indices)
+    if ds is None:
+        return np.full(n, np.nan)
+
+    try:
+        return np.asarray(ds[indices])
+    except Exception:
+        # Some HDF5 datasets dislike fancy indexing depending on ordering or
+        # chunk layout. Fall back to individual reads for the few selected rows.
+        out = []
+        for idx in indices:
+            try:
+                out.append(np.asarray(ds[int(idx)]))
+            except Exception:
+                out.append(np.nan)
+        return np.asarray(out)
+
+def convert_raw_vel_to_kms(raw_vel: np.ndarray, z_snap: float) -> Optional[np.ndarray]:
+    """Convert the simulation velocity convention used in the existing scripts."""
+    if raw_vel is None:
+        return None
+
+    arr = np.asarray(raw_vel)
+    if arr.ndim == 1 and arr.size % 3 == 0:
+        arr = arr.reshape((-1, 3))
+    if arr.ndim != 2 or arr.shape[1] != 3:
+        return None
+
+    comov_to_phys = 1.0 / (1.0 + z_snap)
+    return arr * comov_to_phys * 1e3 / tu
+
+# -----------------------------------------------------------------------------
+# Read DoR catalogue
+# -----------------------------------------------------------------------------
+if not os.path.exists(CSV_DOR):
+    raise SystemExit(f"DoR CSV not found: {CSV_DOR}")
+
+print("Loading DoR CSV:", CSV_DOR)
+df_dor = pd.read_csv(CSV_DOR, low_memory=False)
+
+id_col = None
+for candidate in (
+    "subhalo_id",
+    "HaloCatalogueIndex",
+    "subhaloId",
+    "HaloIndex",
+    "track_id",
+    "TrackId",
+):
+    if candidate in df_dor.columns:
+        id_col = candidate
+        break
+
+if id_col is None:
+    id_col = df_dor.columns[0]
+    print("Warning: no canonical ID column found; using:", id_col)
+
+id_numeric = pd.to_numeric(
+    df_dor[id_col].astype(str).str.replace("\r", "", regex=False).str.strip(),
+    errors="coerce",
+)
+df_dor = df_dor.loc[id_numeric.notna()].copy()
+df_dor["subhalo_id"] = id_numeric.loc[df_dor.index].astype(np.int64)
+
+# Find DoR column.
+dor_col = None
+for candidate in ("DoR_t95", "DoR_t90", "DoR_t998", "DoR", "DoR_tfin"):
+    if candidate in df_dor.columns:
+        dor_col = candidate
+        break
+if dor_col is None:
+    for col in df_dor.columns:
+        if str(col).lower().startswith("dor"):
+            dor_col = col
+            break
+if dor_col is None:
+    raise SystemExit("No DoR-like column found in CSV.")
+
+print("Using DoR column:", dor_col)
+
+dor_lookup = (
+    pd.to_numeric(df_dor[["subhalo_id", dor_col]][dor_col], errors="coerce")
+)
+dor_lookup = pd.Series(dor_lookup.to_numpy(), index=df_dor["subhalo_id"].to_numpy())
+dor_lookup = dor_lookup.dropna().groupby(level=0).first().to_dict()
+print("Loaded DoR entries:", len(dor_lookup))
+
+# -----------------------------------------------------------------------------
+# Read z=0 SOAP through common helper
+# -----------------------------------------------------------------------------
+print("Reading z=0 SOAP (minimal fields) via common.read_group_data_colibre...")
+
+try:
+    import common
+except Exception as exc:
+    raise SystemExit(
+        "Couldn't import common. Run this script from your COLIBRE-analysis "
+        "project where common.py is importable."
+    ) from exc
+
+fields_gal = {
+    "ExclusiveSphere/50kpc": (
+        "StellarMass",
+        "HalfMassRadiusStars",
+        "CentreOfMass",
+        "MostMassiveBlackHoleMass",
+        "CentreOfMassVelocity",
+    )
+}
+fields_id = {
+    "InputHalos": (
+        "HaloCatalogueIndex",
+        "IsCentral",
+        "HBTplus/TrackId",
+    )
+}
+
+h5_gal = common.read_group_data_colibre(MODEL_DIR, Z0_SNAP, fields_gal)
+h5_id = common.read_group_data_colibre(MODEL_DIR, Z0_SNAP, fields_id)
+
+m30_raw, r50_raw, centers0_raw, bh_mass0_raw, comvel0_raw = h5_gal
+halo_index_all, is_central_all, track_id_all = h5_id
+
+m30 = np.asarray(m30_raw).ravel() * Mu
+r50 = np.asarray(r50_raw).ravel() * 1e3
+centers0 = np.asarray(centers0_raw) * 1e3
+bh_mass0 = np.asarray(bh_mass0_raw).ravel() * Mu
+
+comvel0 = np.asarray(comvel0_raw)
+if comvel0.ndim == 1 and comvel0.size % 3 == 0:
+    comvel0 = comvel0.reshape((-1, 3))
+
+halo_index_all = np.asarray(halo_index_all).ravel()
+is_central_all = np.asarray(is_central_all).ravel().astype(bool)
+track_id_all = np.asarray(track_id_all).ravel()
+
+if not (
+    len(m30)
+    == len(r50)
+    == len(centers0)
+    == len(bh_mass0)
+    == len(halo_index_all)
+    == len(is_central_all)
+    == len(track_id_all)
+):
+    raise RuntimeError("z=0 SOAP arrays do not have the same length.")
+
+sel = np.where(m30 >= MIN_STELLAR_MASS)[0]
+if sel.size == 0:
+    raise SystemExit("No z=0 galaxies above MIN_STELLAR_MASS.")
+print("Selected z=0 SOAP rows (m >= MIN_STELLAR_MASS):", sel.size)
+
+# Match DoR to z=0 HaloCatalogueIndex.
+halo_idx_selected = halo_index_all[sel].astype(np.int64)
+dor_for_selected = np.array(
+    [dor_lookup.get(int(h), np.nan) for h in halo_idx_selected],
+    dtype=float,
+)
+
+matched_positions = np.flatnonzero(np.isfinite(dor_for_selected))
+print(
+    f"Matched DoR entries for selected SOAP rows: "
+    f"{matched_positions.size} / {halo_idx_selected.size}"
+)
+
+# Only try +/-1 if the direct matching produced no matches, preserving your
+# original fallback without silently mixing conventions.
+if matched_positions.size == 0:
+    for offset in (-1, +1):
+        trial = np.array(
+            [dor_lookup.get(int(h + offset), np.nan) for h in halo_idx_selected],
+            dtype=float,
+        )
+        trial_matches = np.flatnonzero(np.isfinite(trial))
+        if trial_matches.size:
+            dor_for_selected = trial
+            matched_positions = trial_matches
+            print(
+                f"Matched after halo index offset {offset:+d}: "
+                f"{matched_positions.size}"
+            )
+            break
+
+if matched_positions.size == 0:
+    raise SystemExit("No z=0 SOAP rows could be matched to the DoR catalogue.")
+
+sel_global_idx = sel[matched_positions]
+z0_track_matched = track_id_all[sel_global_idx]
+z0_haloidx_matched = halo_idx_selected[matched_positions]
+z0_iscentral = is_central_all[sel_global_idx]
+z0_mass = m30[sel_global_idx]
+z0_r50 = r50[sel_global_idx]
+z0_bh = bh_mass0[sel_global_idx]
+z0_center = centers0[sel_global_idx]
+
+# z=0 compactness for the matched galaxies.
+# Compute it directly in log-space to minimise temporary allocations.
+with np.errstate(divide="ignore", invalid="ignore"):
+    logm_z0 = np.log10(z0_mass)
+    logr_z0 = np.log10(z0_r50)
+    compactness_z0_all = logm_z0 - 1.5 * logr_z0
+
+# Velocity conversion is only needed for the z=0 extreme relics.
+# Delay it until after the population selections to avoid creating a full second copy of the z=0 velocity catalogue at this point.
+
+# Select the extreme z=0 relics.
+mask_extreme = np.isfinite(dor_for_selected) & (dor_for_selected > EXTREME_DOR)
+
+# z=0 compact non-relics: non-extreme objects that satisfy the same
+# compactness threshold used to define SRGs.
+mask_compact_nonrelic = (
+    np.isfinite(dor_for_selected)
+    & (dor_for_selected < EXTREME_DOR)
+    & np.isfinite(compactness_z0_all)
+    & (compactness_z0_all >= COMPACTNESS_CUT)
+)
+
+n_compact_nonrelic = int(mask_compact_nonrelic.sum())
+print(f"Compact non-relics at z0: {n_compact_nonrelic}")
+n_extreme = int(mask_extreme.sum())
+print(f"Extremes at z0 (DoR>{EXTREME_DOR}): {n_extreme}")
+if n_extreme == 0:
+    raise SystemExit("No extreme relics matched - exiting.")
+
+tracks_to_find = {
+    int(t)
+    for t in z0_track_matched[mask_extreme | mask_compact_nonrelic]
+    if np.isfinite(t)
+}
+print(
+    "Tracks to follow (extreme relics + compact non-relics):",
+    len(tracks_to_find),
+)
+# Convert velocities only for the matched z=0 galaxies actually needed later.
+comvel0_matched = comvel0[sel_global_idx]
+comvel0_kms = convert_raw_vel_to_kms(comvel0_matched, 0.0)
+
+if len(tracks_to_find) < n_extreme:
+    print(
+        "Warning: fewer unique TrackIDs than extreme relics: "
+        f"{len(tracks_to_find)} vs {n_extreme}"
+    )
+
+# -----------------------------------------------------------------------------
+# Scan z=2 SOAP/HBT by TrackID
+# -----------------------------------------------------------------------------
 snap_path_z2 = find_snapshot_path(Z2_SNAP)
 if snap_path_z2 is None:
-    raise SystemExit(f"Could not find z=2 snapshot file for label {Z2_SNAP} under {MODEL_DIR}")
+    raise SystemExit(
+        f"Could not find z=2 snapshot file for label {Z2_SNAP} under {MODEL_DIR}"
+    )
 
 print("Scanning z=2 snapshot:", snap_path_z2)
 
-# candidate dataset names to try
-track_candidates = ["HBTplus/TrackId", "HBT/TrackId", "TrackId", "HBTplus/track_id"]
-halo_candidates  = ["HaloCatalogueIndex", "HaloIndex", "Halo/Index", "InputHalos/HaloCatalogueIndex"]
+track_candidates = [
+    "HBTplus/TrackId",
+    "HBT/TrackId",
+    "TrackId",
+    "HBTplus/track_id",
+]
+halo_candidates = [
+    "HaloCatalogueIndex",
+    "HaloIndex",
+    "Halo/Index",
+    "InputHalos/HaloCatalogueIndex",
+]
 iscen_candidates = ["IsCentral", "is_central"]
 
-# also try to collect galaxy properties at z2 for matched tracks: StellarMass, HalfMassRadiusStars, MostMassiveBlackHoleMass, CentreOfMass
-gal_candidates = ["ExclusiveSphere/50kpc/StellarMass", "ExclusiveSphere/50kpc/HalfMassRadiusStars",
-                  "ExclusiveSphere/50kpc/MostMassiveBlackHoleMass", "ExclusiveSphere/50kpc/CentreOfMass"]
+def find_galaxy_dataset(group: h5py.Group, exact_candidates: Iterable[str]) -> Optional[h5py.Dataset]:
+    """Return an HDF5 dataset for an ExclusiveSphere property."""
+    exact_candidates = list(exact_candidates)
 
-found_z2_rows = []   # list of dicts per found track
+    for cand in exact_candidates:
+        if cand in group and isinstance(group[cand], h5py.Dataset):
+            return group[cand]
+
+    # Most commonly the top-level group contains ExclusiveSphere.
+    if "ExclusiveSphere" in group:
+        ex = group["ExclusiveSphere"]
+        tail_names = {cand.split("/")[-1] for cand in exact_candidates}
+        for tail in tail_names:
+            if tail in ex and isinstance(ex[tail], h5py.Dataset):
+                return ex[tail]
+        if "50kpc" in ex:
+            sph = ex["50kpc"]
+            for tail in tail_names:
+                if tail in sph and isinstance(sph[tail], h5py.Dataset):
+                    return sph[tail]
+
+    return None
+
+found_z2_rows: list[dict] = []
 
 with h5py.File(snap_path_z2, "r") as fh:
-    # locate datasets
-    # TrackId dataset
-    ds_track_name = None
-    for cand in track_candidates:
-        if cand in fh:
-            ds_track_name = cand; break
-        if "InputHalos" in fh and cand in fh["InputHalos"]:
-            ds_track_name = "InputHalos/" + cand; break
-    if ds_track_name is None:
-        # try scanning keys
-        for k in fh.keys():
-            if "Track" in k or "track" in k:
-                ds_track_name = k; break
+    ds_track_name = find_dataset_in_group(fh, track_candidates)
+    ds_halo_name = find_dataset_in_group(fh, halo_candidates)
+    ds_iscen_name = find_dataset_in_group(fh, iscen_candidates)
+
     if ds_track_name is None:
         raise SystemExit("No TrackId-like dataset found in z=2 snapshot.")
+    if ds_halo_name is None:
+        print("Warning: no HaloCatalogueIndex-like dataset found at z=2.")
+    if ds_iscen_name is None:
+        print("Warning: no IsCentral-like dataset found at z=2.")
 
     print("Using TrackId dataset:", ds_track_name)
+    print("Using halo idx dataset:", ds_halo_name)
+    print("Using IsCentral dataset:", ds_iscen_name)
 
-    # halo idx
-    ds_halo_name = find_dataset_in_group(fh, halo_candidates)
-    if ds_halo_name is None:
-        print("Warning: HaloCatalogueIndex-like dataset not found in z=2 snapshot; will record NaN.")
-    else:
-        print("Using halo idx dataset:", ds_halo_name)
+    ds_mz2 = find_galaxy_dataset(
+        fh,
+        [
+            "ExclusiveSphere/50kpc/StellarMass",
+            "ExclusiveSphere/StellarMass",
+            "StellarMass",
+        ],
+    )
+    ds_r50 = find_galaxy_dataset(
+        fh,
+        [
+            "ExclusiveSphere/50kpc/HalfMassRadiusStars",
+            "ExclusiveSphere/HalfMassRadiusStars",
+            "HalfMassRadiusStars",
+        ],
+    )
+    ds_bh = find_galaxy_dataset(
+        fh,
+        [
+            "ExclusiveSphere/50kpc/MostMassiveBlackHoleMass",
+            "ExclusiveSphere/MostMassiveBlackHoleMass",
+            "MostMassiveBlackHoleMass",
+        ],
+    )
+    ds_center = find_galaxy_dataset(
+        fh,
+        [
+            "ExclusiveSphere/50kpc/CentreOfMass",
+            "ExclusiveSphere/CentreOfMass",
+            "CentreOfMass",
+        ],
+    )
+    ds_comvel = find_galaxy_dataset(
+        fh,
+        [
+            "ExclusiveSphere/50kpc/CentreOfMassVelocity",
+            "ExclusiveSphere/CentreOfMassVelocity",
+            "CentreOfMassVelocity",
+        ],
+    )
 
-    # iscentral
-    ds_iscen_name = find_dataset_in_group(fh, iscen_candidates)
-    if ds_iscen_name is None:
-        print("Warning: IsCentral-like dataset not found in z=2 snapshot; will record NaN.")
-    else:
-        print("Using IsCentral dataset:", ds_iscen_name)
+    print("z=2 galaxy datasets:")
+    print("  StellarMass:", ds_mz2.name if ds_mz2 is not None else "NOT FOUND")
+    print("  HalfMassRadiusStars:", ds_r50.name if ds_r50 is not None else "NOT FOUND")
+    print("  MostMassiveBlackHoleMass:", ds_bh.name if ds_bh is not None else "NOT FOUND")
+    print("  CentreOfMass:", ds_center.name if ds_center is not None else "NOT FOUND")
+    print("  CentreOfMassVelocity:", ds_comvel.name if ds_comvel is not None else "NOT FOUND")
 
-    # optional galaxy properties (try to get them via common helper first)
-    # We'll try reading StellarMass, HalfMassRadiusStars, MostMassiveBlackHoleMass, CentreOfMass if present
-    # but these may be under ExclusiveSphere/50kpc and our scanning by TrackId is chunked - reading entire arrays may be ok
-    # if data is large you can adjust CHUNK or add more complicated chunk reading.
-    
-    # ------------------ Efficient two-pass z=2 scan (memory-friendly) ------------------
-    print("Efficient two-pass z=2 scan (chunked TrackId search, then selective reads).")
-
-    snap_path_z2 = find_snapshot_path(Z2_SNAP)
-    if snap_path_z2 is None:
-        raise SystemExit(f"Could not find z=2 snapshot file for label {Z2_SNAP} under {MODEL_DIR}")
-
-    with h5py.File(snap_path_z2, "r") as fh:
-        # locate track dataset name (same logic you used earlier)
-        ds_track_name = None
-        for cand in track_candidates:
-            if cand in fh:
-                ds_track_name = cand; break
-            if "InputHalos" in fh and cand in fh["InputHalos"]:
-                ds_track_name = "InputHalos/" + cand; break
-        if ds_track_name is None:
-            # try scanning keys
-            for k in fh.keys():
-                if "Track" in k or "track" in k:
-                    ds_track_name = k; break
-        if ds_track_name is None:
-            raise SystemExit("No TrackId-like dataset found in z=2 snapshot.")
-        print("Using TrackId dataset:", ds_track_name)
-
-        # find halo/iscentral dataset names (may be missing)
-        ds_halo_name = find_dataset_in_group(fh, halo_candidates)
-        ds_iscen_name = find_dataset_in_group(fh, iscen_candidates)
-        if ds_halo_name is None:
-            print("Warning: HaloCatalogueIndex-like dataset not found in z=2 snapshot; will record NaN.")
-        else:
-            print("Using halo idx dataset:", ds_halo_name)
-        if ds_iscen_name is None:
-            print("Warning: IsCentral-like dataset not found in z=2 snapshot; will record NaN.")
-        else:
-            print("Using IsCentral dataset:", ds_iscen_name)
-
-        # second-pass dataset candidates (ExclusiveSphere) we will read *selectively* if present
-        # try to find dataset objects (not using helper to avoid big memory allocations)
-        def find_dsobj(base, cand_list):
-            # try exact paths first
-            for cand in cand_list:
-                if cand in base:
-                    return base[cand]
-                if "ExclusiveSphere" in base and cand.split("/")[-1] in base["ExclusiveSphere"]:
-                    return base["ExclusiveSphere"][cand.split("/")[-1]]
-            # scan keys for hints
-            for k in base.keys():
-                if any(s in k for s in ["ExclusiveSphere", "StellarMass", "HalfMassRadius", "MostMassiveBlackHole", "CentreOfMass"]):
-                    obj = base[k]
-                    # if it's a group, try inside
-                    if isinstance(obj, h5py.Group):
-                        for cand in cand_list:
-                            name = cand.split("/")[-1]
-                            if name in obj:
-                                return obj[name]
-            return None
-
-        ds_mz2 = find_dsobj(fh, ["ExclusiveSphere/50kpc/StellarMass", "ExclusiveSphere/StellarMass", "StellarMass"])
-        ds_r50 = find_dsobj(fh, ["ExclusiveSphere/50kpc/HalfMassRadiusStars", "ExclusiveSphere/HalfMassRadiusStars", "HalfMassRadiusStars"])
-        ds_bh  = find_dsobj(fh, ["ExclusiveSphere/50kpc/MostMassiveBlackHoleMass", "ExclusiveSphere/MostMassiveBlackHoleMass", "MostMassiveBlackHoleMass"])
-        ds_center = find_dsobj(fh, ["ExclusiveSphere/50kpc/CentreOfMass", "ExclusiveSphere/CentreOfMass", "CentreOfMass"])
-        ds_comvel  = find_dsobj(fh, ["ExclusiveSphere/50kpc/CentreOfMassVelocity", "ExclusiveSphere/CentreOfMassVelocity", "CentreOfMassVelocity"])
-
-        # CHUNK-scan TrackId to collect absolute indices for tracks_to_find
-        d_track = fh[ds_track_name]
-        nrows = d_track.shape[0]
-        print("z=2 TrackId table length:", nrows)
-
-        tracks_remaining = set(tracks_to_find)
-        abs_indices_found = []   # list of (abs_idx, track_id, halo_val, is_central_val)
-
-        for start in range(0, nrows, CHUNK):
-            stop = min(start + CHUNK, nrows)
-            tr_chunk = d_track[start:stop]
-            # convert to integers for membership test without copying huge arrays if possible
-            # use numpy vectorized isin against list(tracks_remaining)
-            try:
-                tr_chunk_int = np.asarray(tr_chunk, dtype=np.int64)
-            except Exception:
-                tr_chunk_int = np.asarray(tr_chunk, dtype=float)
-
-            if len(tracks_remaining) == 0:
-                break
-
-            # build boolean mask of matches
-            mask_in = np.isin(tr_chunk_int, list(tracks_remaining))
-            if not np.any(mask_in):
-                continue
-
-            rel_idxs = np.nonzero(mask_in)[0]
-            abs_idxs = rel_idxs + start
-
-            # fetch halo/iscentral only for these abs_idxs (cheap small reads)
-            if ds_halo_name is not None:
-                try:
-                    halo_vals = fh[ds_halo_name][abs_idxs]
-                except Exception:
-                    halo_vals = np.full(len(abs_idxs), np.nan)
-            else:
-                halo_vals = np.full(len(abs_idxs), np.nan)
-
-            if ds_iscen_name is not None:
-                try:
-                    iscen_vals = fh[ds_iscen_name][abs_idxs]
-                except Exception:
-                    iscen_vals = np.full(len(abs_idxs), np.nan)
-            else:
-                iscen_vals = np.full(len(abs_idxs), np.nan)
-
-            for local_i, ai in enumerate(abs_idxs):
-                trv = int(tr_chunk_int[rel_idxs[local_i]])
-                halov = halo_vals[local_i] if (halo_vals is not None and len(halo_vals)>local_i) else np.nan
-                iscenv = iscen_vals[local_i] if (iscen_vals is not None and len(iscen_vals)>local_i) else np.nan
-                abs_indices_found.append((int(ai), int(trv) if np.isfinite(trv) else trv, int(halov) if np.isfinite(halov) else np.nan, iscenv))
-                # remove from remaining
-                if trv in tracks_remaining:
-                    tracks_remaining.remove(trv)
-
-            if len(tracks_remaining) == 0:
-                break
-
-        print("Tracks found in z=2 (abs idxs):", len(abs_indices_found), " ; still missing:", len(tracks_remaining))
-
-        # After gathering absolute indices, we can *selectively* read the heavy datasets only at those indices.
-        # Convert to arrays of indices
-        if len(abs_indices_found) == 0:
-            # no matches found; add placeholders for missing tracks
-            for missing_tr in list(tracks_remaining):
-                found_z2_rows.append({
-                    "track_id": int(missing_tr),
-                    "z2_snapshot": Z2_SNAP,
-                    "halo_index_z2": np.nan,
-                    "is_central_z2": None,
-                    "m_z2": np.nan, "r50_z2_kpc": np.nan, "bh_z2": np.nan,
-                    "center_x_z2": np.nan, "center_y_z2": np.nan, "center_z_z2": np.nan,
-                    "v_x_z2_kms": np.nan, "v_y_z2_kms": np.nan, "v_z_z2_kms": np.nan
-                })
-        else:
-            abs_idxs_arr = np.array([t[0] for t in abs_indices_found], dtype=int)
-            track_arr = np.array([t[1] for t in abs_indices_found], dtype=int)
-            halo_arr  = np.array([t[2] for t in abs_indices_found], dtype=float)
-            iscen_arr = np.array([t[3] for t in abs_indices_found])
-
-            # Now read the heavy arrays at abs_idxs_arr (small reads)
-            # If dataset missing, fill with nan
-            def safe_read(ds, idxs):
-                if ds is None:
-                    return np.full(len(idxs), np.nan)
-                try:
-                    return np.asarray(ds[idxs])
-                except Exception:
-                    # fallback: iterative read to be extra memory-light
-                    out = []
-                    for ii in idxs:
-                        try:
-                            out.append(np.asarray(ds[int(ii)]))
-                        except Exception:
-                            out.append(np.nan)
-                    return np.asarray(out)
-
-            m_z2_sel = safe_read(ds_mz2, abs_idxs_arr)
-            r50_z2_sel = safe_read(ds_r50, abs_idxs_arr)
-            bh_z2_sel = safe_read(ds_bh, abs_idxs_arr)
-            center_z2_sel = safe_read(ds_center, abs_idxs_arr)
-            comvel_z2_sel = safe_read(ds_comvel, abs_idxs_arr) if ds_comvel is not None else None
-
-            # unit conversions now (elementwise)
-            comov_to_phys = 1.0 / (1.0 + 2.0)
-            # masses -> Msun
-            if m_z2_sel is not None:
-                m_z2_sel = np.asarray(m_z2_sel).ravel() * Mu
-            if r50_z2_sel is not None:
-                r50_z2_sel = np.asarray(r50_z2_sel).ravel() * comov_to_phys * 1e3  # kpc
-            if bh_z2_sel is not None:
-                bh_z2_sel = np.asarray(bh_z2_sel).ravel() * Mu
-            # centres: ensure shape Nx3
-            if center_z2_sel is not None:
-                cen = np.asarray(center_z2_sel)
-                if cen.ndim == 1 and cen.size % 3 == 0:
-                    cen = cen.reshape((-1,3))
-                center_z2_sel = cen * comov_to_phys * 1e3
-            # comvel -> convert to km/s using same function as earlier
-            if comvel_z2_sel is not None:
-                cv = np.asarray(comvel_z2_sel)
-                if cv.ndim == 1 and cv.size % 3 == 0:
-                    cv = cv.reshape((-1,3))
-                comvel_z2_kms_sel = cv * comov_to_phys * 1e3 / tu
-            else:
-                comvel_z2_kms_sel = None
-
-            # build found_z2_rows in the same order as abs_indices_found
-            for idx_i in range(len(abs_idxs_arr)):
-                ai = abs_idxs_arr[idx_i]
-                trv = int(track_arr[idx_i])
-                halov = halo_arr[idx_i] if not np.isnan(halo_arr[idx_i]) else np.nan
-                iscenv = iscen_arr[idx_i] if not (iscen_arr[idx_i] is None) else None
-
-                out = {
-                    "track_id": int(trv),
-                    "z2_snapshot": Z2_SNAP,
-                    "halo_index_z2": int(halov) if np.isfinite(halov) else np.nan,
-                    "is_central_z2": bool(iscenv) if (iscenv is not None and not (isinstance(iscenv, float) and np.isnan(iscenv))) else None
-                }
-
-                # fill selective reads safely
-                try:
-                    out["m_z2"] = float(m_z2_sel[idx_i]) if np.isfinite(m_z2_sel[idx_i]) else np.nan
-                except Exception:
-                    out["m_z2"] = np.nan
-                try:
-                    out["r50_z2_kpc"] = float(r50_z2_sel[idx_i]) if np.isfinite(r50_z2_sel[idx_i]) else np.nan
-                except Exception:
-                    out["r50_z2_kpc"] = np.nan
-                try:
-                    out["bh_z2"] = float(bh_z2_sel[idx_i]) if np.isfinite(bh_z2_sel[idx_i]) else np.nan
-                except Exception:
-                    out["bh_z2"] = np.nan
-                try:
-                    cx,cy,cz = center_z2_sel[idx_i]
-                    out["center_x_z2"], out["center_y_z2"], out["center_z_z2"] = float(cx), float(cy), float(cz)
-                except Exception:
-                    out["center_x_z2"], out["center_y_z2"], out["center_z_z2"] = (np.nan, np.nan, np.nan)
-                if comvel_z2_kms_sel is not None:
-                    try:
-                        vx,vy,vz = comvel_z2_kms_sel[idx_i]
-                        out["v_x_z2_kms"], out["v_y_z2_kms"], out["v_z_z2_kms"] = float(vx), float(vy), float(vz)
-                    except Exception:
-                        out["v_x_z2_kms"], out["v_y_z2_kms"], out["v_z_z2_kms"] = (np.nan, np.nan, np.nan)
-
-                found_z2_rows.append(out)
-
-            # any tracks still missing in tracks_remaining -> placeholders
-            for missing_tr in list(tracks_remaining):
-                found_z2_rows.append({
-                    "track_id": int(missing_tr),
-                    "z2_snapshot": Z2_SNAP,
-                    "halo_index_z2": np.nan,
-                    "is_central_z2": None,
-                    "m_z2": np.nan, "r50_z2_kpc": np.nan, "bh_z2": np.nan,
-                    "center_x_z2": np.nan, "center_y_z2": np.nan, "center_z_z2": np.nan,
-                    "v_x_z2_kms": np.nan, "v_y_z2_kms": np.nan, "v_z_z2_kms": np.nan
-                })
-
-    print(f"Finished efficient scanning z=2: built {len(found_z2_rows)} entries (including placeholders).")
-
-    # now chunk-scan TrackId dataset and check for membership
     d_track = fh[ds_track_name]
     nrows = d_track.shape[0]
     print("z=2 TrackId table length:", nrows)
-    tracks_remaining = set(tracks_to_find)
 
-    # if we have full arrays of ExclusiveSphere fields, we can map by array index; else record not-found or limited info
+    tracks_remaining = set(tracks_to_find)
+    abs_indices_found: list[tuple[int, int, float, object]] = []
+
+    print("Scanning z=2 TrackIDs in chunks...")
     for start in range(0, nrows, CHUNK):
         stop = min(start + CHUNK, nrows)
-        tr_chunk = np.asarray(d_track[start:stop])
-        # try cast to integer-like for comparison
-        try:
-            tr_chunk_f = tr_chunk.astype(np.int64)
-        except Exception:
-            # try float then int
-            tr_chunk_f = np.asarray(tr_chunk, dtype=float)
-        # get indexes present
-        # use numpy intersection test
-        # we build mask of any tracks that are in our set
-        mask_in = np.isin(tr_chunk_f, list(tracks_remaining))
+        tr_chunk = np.asarray(d_track[start:stop], dtype=np.int64)
+
+        if not tracks_remaining:
+            break
+
+        mask_in = np.isin(tr_chunk, np.fromiter(tracks_remaining, dtype=np.int64))
         if not np.any(mask_in):
             continue
-        rel_idxs = np.nonzero(mask_in)[0]
+
+        rel_idxs = np.flatnonzero(mask_in)
         abs_idxs = rel_idxs + start
 
-        # read halo idx and iscentral if present
-        halo_vals = None
-        iscen_vals = None
         if ds_halo_name is not None:
             try:
-                halo_ds = fh[ds_halo_name]
-                halo_vals = np.asarray(halo_ds[abs_idxs])
+                halo_vals = np.asarray(fh[ds_halo_name][abs_idxs])
             except Exception:
                 halo_vals = np.full(len(abs_idxs), np.nan)
         else:
             halo_vals = np.full(len(abs_idxs), np.nan)
+
         if ds_iscen_name is not None:
             try:
-                iscen_ds = fh[ds_iscen_name]
-                iscen_vals = np.asarray(iscen_ds[abs_idxs])
+                iscen_vals = np.asarray(fh[ds_iscen_name][abs_idxs])
             except Exception:
                 iscen_vals = np.full(len(abs_idxs), np.nan)
         else:
             iscen_vals = np.full(len(abs_idxs), np.nan)
 
-        # gather galaxy fields from helper arrays if available
-        for i_local, ai in enumerate(abs_idxs):
-            trval = int(tr_chunk_f[rel_idxs[i_local]])
-            haloval = int(halo_vals[i_local]) if np.isfinite(halo_vals[i_local]) else np.nan
-            iscen_raw = iscen_vals[i_local]
+        for j, ai in enumerate(abs_idxs):
+            trv = int(tr_chunk[rel_idxs[j]])
+            halov = halo_vals[j] if j < len(halo_vals) else np.nan
+            iscenv = iscen_vals[j] if j < len(iscen_vals) else np.nan
+
             try:
-                if isinstance(iscen_raw, (np.bool_, bool)):
-                    iscen = bool(iscen_raw)
-                else:
-                    iscen = bool(int(iscen_raw)) if np.isfinite(iscen_raw) else None
+                halo_float = float(halov)
             except Exception:
-                iscen = None
+                halo_float = np.nan
 
-            out = {
-                "track_id": int(trval),
-                "z2_snapshot": Z2_SNAP,
-                "halo_index_z2": int(haloval) if not np.isnan(haloval) else np.nan,
-                "is_central_z2": iscen
-            }
+            abs_indices_found.append((
+                int(ai),
+                trv,
+                halo_float,
+                iscenv,
+            ))
+            tracks_remaining.discard(trv)
 
-            if have_gal_z2:
-                # ai is the absolute row index into the SOAP arrays; use to index ExclusiveSphere arrays
-                try:
-                    out["m_z2"] = float(m_z2_all[ai])
-                except Exception:
-                    out["m_z2"] = np.nan
-                try:
-                    out["r50_z2_kpc"] = float(r50_z2_all[ai])
-                except Exception:
-                    out["r50_z2_kpc"] = np.nan
-                try:
-                    out["bh_z2"] = float(bh_z2_all[ai])
-                except Exception:
-                    out["bh_z2"] = np.nan
-                try:
-                    out["center_x_z2"], out["center_y_z2"], out["center_z_z2"] = tuple(np.asarray(centers_z2_all[ai]))
-                except Exception:
-                    out["center_x_z2"], out["center_y_z2"], out["center_z_z2"] = (np.nan, np.nan, np.nan)
-                if comvel_z2_kms is not None:
-                    try:
-                        vx, vy, vz = comvel_z2_kms[ai]
-                        out["v_x_z2_kms"], out["v_y_z2_kms"], out["v_z_z2_kms"] = float(vx), float(vy), float(vz)
-                    except Exception:
-                        out["v_x_z2_kms"], out["v_y_z2_kms"], out["v_z_z2_kms"] = (np.nan, np.nan, np.nan)
-            found_z2_rows.append(out)
-            # remove track from remaining set
-            if trval in tracks_remaining:
-                tracks_remaining.remove(trval)
-
-        # early break if none left
         if not tracks_remaining:
             break
 
-    # for any tracks still not found in the entire file, record not-found rows
-    for missing_tr in list(tracks_remaining):
+    print(
+        "Tracks found in z=2:", len(abs_indices_found),
+        "; still missing:", len(tracks_remaining),
+    )
+
+    # Sanity check: normally one z=2 row per TrackID is expected here.
+    found_track_set = {item[1] for item in abs_indices_found}
+    duplicate_count = len(abs_indices_found) - len(found_track_set)
+    if duplicate_count:
+        print(
+            "Warning:", duplicate_count,
+            "duplicate z=2 TrackID matches were found. Using the first match per TrackID."
+        )
+
+    # Keep only the first row per TrackID so the later dictionary is deterministic.
+    unique_found = {}
+    for item in abs_indices_found:
+        unique_found.setdefault(item[1], item)
+    abs_indices_found = list(unique_found.values())
+
+    if abs_indices_found:
+        abs_idxs_arr = np.array([item[0] for item in abs_indices_found], dtype=np.int64)
+        track_arr = np.array([item[1] for item in abs_indices_found], dtype=np.int64)
+        halo_arr = np.array([item[2] for item in abs_indices_found], dtype=float)
+        iscen_arr = np.array([item[3] for item in abs_indices_found], dtype=object)
+
+        # IMPORTANT: all selective reads happen while the HDF5 file is open.
+        m_z2_sel = safe_read_dataset(ds_mz2, abs_idxs_arr)
+        r50_z2_sel = safe_read_dataset(ds_r50, abs_idxs_arr)
+        bh_z2_sel = safe_read_dataset(ds_bh, abs_idxs_arr)
+        center_z2_sel = safe_read_dataset(ds_center, abs_idxs_arr)
+        comvel_z2_sel = safe_read_dataset(ds_comvel, abs_idxs_arr)
+
+        # z=2 raw -> physical units.
+        z2 = 2.0
+        comov_to_phys = 1.0 / (1.0 + z2)
+
+        m_z2_sel = np.asarray(m_z2_sel).ravel() * Mu
+        r50_z2_sel = np.asarray(r50_z2_sel).ravel() * comov_to_phys * 1e3
+        bh_z2_sel = np.asarray(bh_z2_sel).ravel() * Mu
+
+        center_z2_sel = np.asarray(center_z2_sel)
+        if center_z2_sel.ndim == 1 and center_z2_sel.size == 3 * len(abs_idxs_arr):
+            center_z2_sel = center_z2_sel.reshape((-1, 3))
+        if center_z2_sel.ndim == 2 and center_z2_sel.shape[1] == 3:
+            center_z2_sel = center_z2_sel * comov_to_phys * 1e3
+        else:
+            center_z2_sel = np.full((len(abs_idxs_arr), 3), np.nan)
+
+        comvel_z2_kms_sel = convert_raw_vel_to_kms(comvel_z2_sel, z2)
+        if comvel_z2_kms_sel is None:
+            comvel_z2_kms_sel = np.full((len(abs_idxs_arr), 3), np.nan)
+
+        for i in range(len(abs_idxs_arr)):
+            iscen_raw = iscen_arr[i]
+            try:
+                iscen_float = float(iscen_raw)
+                iscen = bool(int(iscen_float)) if np.isfinite(iscen_float) else None
+            except Exception:
+                iscen = None
+
+            row = {
+                "track_id": int(track_arr[i]),
+                "z2_snapshot": Z2_SNAP,
+                "halo_index_z2": int(halo_arr[i]) if np.isfinite(halo_arr[i]) else np.nan,
+                "is_central_z2": iscen,
+                "m_z2": float(m_z2_sel[i]) if np.isfinite(m_z2_sel[i]) else np.nan,
+                "r50_z2_kpc": float(r50_z2_sel[i]) if np.isfinite(r50_z2_sel[i]) else np.nan,
+                "bh_z2": float(bh_z2_sel[i]) if np.isfinite(bh_z2_sel[i]) else np.nan,
+                "center_x_z2": float(center_z2_sel[i, 0]) if np.isfinite(center_z2_sel[i, 0]) else np.nan,
+                "center_y_z2": float(center_z2_sel[i, 1]) if np.isfinite(center_z2_sel[i, 1]) else np.nan,
+                "center_z_z2": float(center_z2_sel[i, 2]) if np.isfinite(center_z2_sel[i, 2]) else np.nan,
+                "v_x_z2_kms": float(comvel_z2_kms_sel[i, 0]) if np.isfinite(comvel_z2_kms_sel[i, 0]) else np.nan,
+                "v_y_z2_kms": float(comvel_z2_kms_sel[i, 1]) if np.isfinite(comvel_z2_kms_sel[i, 1]) else np.nan,
+                "v_z_z2_kms": float(comvel_z2_kms_sel[i, 2]) if np.isfinite(comvel_z2_kms_sel[i, 2]) else np.nan,
+            }
+            found_z2_rows.append(row)
+
+    # Explicit placeholders for any missing TrackIDs.
+    for missing_tr in sorted(tracks_remaining):
         found_z2_rows.append({
             "track_id": int(missing_tr),
             "z2_snapshot": Z2_SNAP,
             "halo_index_z2": np.nan,
             "is_central_z2": None,
-            "m_z2": np.nan, "r50_z2_kpc": np.nan, "bh_z2": np.nan,
-            "center_x_z2": np.nan, "center_y_z2": np.nan, "center_z_z2": np.nan,
-            "v_x_z2_kms": np.nan, "v_y_z2_kms": np.nan, "v_z_z2_kms": np.nan
+            "m_z2": np.nan,
+            "r50_z2_kpc": np.nan,
+            "bh_z2": np.nan,
+            "center_x_z2": np.nan,
+            "center_y_z2": np.nan,
+            "center_z_z2": np.nan,
+            "v_x_z2_kms": np.nan,
+            "v_y_z2_kms": np.nan,
+            "v_z_z2_kms": np.nan,
         })
 
-print(f"Finished scanning z=2: found entries for {len(found_z2_rows)} tracks (including not-found placeholders).")
+print(f"Finished z=2 scan: built {len(found_z2_rows)} entries.")
 
-# ------------------------- Build summary table combining z0 & z2 info -------------------------
-# Build map track_id -> z2 row
-map_z2 = {int(r["track_id"]): r for r in found_z2_rows}
+# -----------------------------------------------------------------------------
+# Build final z=0 + z=2 table
+# -----------------------------------------------------------------------------
+map_z2 = {int(row["track_id"]): row for row in found_z2_rows}
 
-rows_out = []
-# iterate over extremes at z0 and assemble summary
-for i_local in np.where(mask_extreme)[0]:
-    # index into full SOAP arrays
-    abs_idx = sel_global_idx[i_local]
-    tr = int(z0_track_matched[i_local]) if np.isfinite(z0_track_matched[i_local]) else None
-    if tr is None:
+# Keep the original df_out exactly restricted to the z=0 extreme relics.
+# Separately retain z=0 compact non-relics at their z=2 positions for the
+# BH-ratio plot. This avoids changing the existing mass-size/compactness plots.
+compact_nonrelic_z2_rows: list[dict] = []
+
+for i_local in np.flatnonzero(mask_compact_nonrelic):
+    track_raw = z0_track_matched[i_local]
+    if not np.isfinite(track_raw):
         continue
-    z2info = map_z2.get(tr, None)
+
+    track_id = int(track_raw)
+    z2info = map_z2.get(track_id)
+    if z2info is None:
+        continue
+
+    m2 = z2info.get("m_z2", np.nan)
+    bh2 = z2info.get("bh_z2", np.nan)
+    if not (
+        np.isfinite(m2)
+        and m2 > 0
+        and np.isfinite(bh2)
+        and bh2 > 0
+    ):
+        continue
+
+    compact_nonrelic_z2_rows.append({
+        "track_id": track_id,
+        "log10_mstar_z2": np.log10(m2),
+        "log10_bh_ratio_z2": np.log10(bh2 / m2),
+    })
+
+print(
+    "z=0 compact non-relics successfully traced to z=2 with finite BH ratio:",
+    len(compact_nonrelic_z2_rows),
+)
+
+rows_out: list[dict] = []
+
+extreme_positions = np.flatnonzero(mask_extreme)
+for i_local in extreme_positions:
+    abs_idx = sel_global_idx[i_local]
+    track_raw = z0_track_matched[i_local]
+    if not np.isfinite(track_raw):
+        continue
+    track_id = int(track_raw)
+
     row = {
-        "track_id": int(tr),
-        "halo_index_z0": int(z0_haloidx_matched[i_local]) if not np.isnan(z0_haloidx_matched[i_local]) else np.nan,
+        "track_id": track_id,
+        "dor_z0": float(dor_for_selected[i_local]),
+        "halo_index_z0": int(z0_haloidx_matched[i_local]),
         "is_central_z0": bool(z0_iscentral[i_local]),
         "m_z0": float(z0_mass[i_local]),
         "r50_z0_kpc": float(z0_r50[i_local]),
         "bh_z0": float(z0_bh[i_local]) if np.isfinite(z0_bh[i_local]) else np.nan,
-        "center_x_z0": float(z0_center[i_local,0]) if (np.isfinite(z0_center[i_local]).all()) else np.nan,
-        "center_y_z0": float(z0_center[i_local,1]) if (np.isfinite(z0_center[i_local]).all()) else np.nan,
-        "center_z_z0": float(z0_center[i_local,2]) if (np.isfinite(z0_center[i_local]).all()) else np.nan,
     }
-    if comvel0_kms is not None:
-        try:
-            vx,vy,vz = comvel0_kms[abs_idx]
-            row["v_x_z0_kms"], row["v_y_z0_kms"], row["v_z_z0_kms"] = float(vx), float(vy), float(vz)
-        except Exception:
-            row["v_x_z0_kms"], row["v_y_z0_kms"], row["v_z_z0_kms"] = (np.nan, np.nan, np.nan)
 
-    if z2info is None:
-        # not found placeholder
-        row.update({
-            "halo_index_z2": np.nan, "is_central_z2": None,
-            "m_z2": np.nan, "r50_z2_kpc": np.nan, "bh_z2": np.nan,
-            "center_x_z2": np.nan, "center_y_z2": np.nan, "center_z_z2": np.nan,
-            "v_x_z2_kms": np.nan, "v_y_z2_kms": np.nan, "v_z_z2_kms": np.nan
-        })
+    if z0_center.ndim == 2 and z0_center.shape[1] == 3:
+        row["center_x_z0"] = float(z0_center[i_local, 0])
+        row["center_y_z0"] = float(z0_center[i_local, 1])
+        row["center_z_z0"] = float(z0_center[i_local, 2])
     else:
-        # copy fields
-        row["halo_index_z2"] = z2info.get("halo_index_z2", np.nan)
-        row["is_central_z2"] = z2info.get("is_central_z2", None)
-        row["m_z2"] = z2info.get("m_z2", np.nan)
-        row["r50_z2_kpc"] = z2info.get("r50_z2_kpc", np.nan)
-        row["bh_z2"] = z2info.get("bh_z2", np.nan)
-        row["center_x_z2"] = z2info.get("center_x_z2", np.nan)
-        row["center_y_z2"] = z2info.get("center_y_z2", np.nan)
-        row["center_z_z2"] = z2info.get("center_z_z2", np.nan)
-        row["v_x_z2_kms"] = z2info.get("v_x_z2_kms", np.nan)
-        row["v_y_z2_kms"] = z2info.get("v_y_z2_kms", np.nan)
-        row["v_z_z2_kms"] = z2info.get("v_z_z2_kms", np.nan)
+        row["center_x_z0"] = row["center_y_z0"] = row["center_z_z0"] = np.nan
 
-    # compute BH ratio log columns if possible (z0/z2)
-    try:
-        row["log10_mstar_z0"] = float(np.log10(row["m_z0"])) if np.isfinite(row["m_z0"]) and row["m_z0"]>0 else np.nan
-    except Exception:
-        row["log10_mstar_z0"] = np.nan
-    try:
-        row["log10_mstar_z2"] = float(np.log10(row["m_z2"])) if np.isfinite(row["m_z2"]) and row["m_z2"]>0 else np.nan
-    except Exception:
-        row["log10_mstar_z2"] = np.nan
+    if comvel0_kms is not None and comvel0_kms.ndim == 2 and comvel0_kms.shape[1] == 3:
+        matched_i = i_local
+        row["v_x_z0_kms"] = float(comvel0_kms[matched_i, 0])
+        row["v_y_z0_kms"] = float(comvel0_kms[matched_i, 1])
+        row["v_z_z0_kms"] = float(comvel0_kms[matched_i, 2])
+    else:
+        row["v_x_z0_kms"] = row["v_y_z0_kms"] = row["v_z_z0_kms"] = np.nan
 
-    try:
-        row["log10_bh_ratio_z0"] = float(np.log10(row["bh_z0"]/row["m_z0"])) if np.isfinite(row["bh_z0"]) and np.isfinite(row["m_z0"]) and row["bh_z0"]>0 and row["m_z0"]>0 else np.nan
-    except Exception:
-        row["log10_bh_ratio_z0"] = np.nan
-    try:
-        row["log10_bh_ratio_z2"] = float(np.log10(row["bh_z2"]/row["m_z2"])) if np.isfinite(row["bh_z2"]) and np.isfinite(row["m_z2"]) and row["bh_z2"]>0 and row["m_z2"]>0 else np.nan
-    except Exception:
-        row["log10_bh_ratio_z2"] = np.nan
+    z2info = map_z2.get(track_id, {})
+    row.update({
+        "halo_index_z2": z2info.get("halo_index_z2", np.nan),
+        "is_central_z2": z2info.get("is_central_z2", None),
+        "m_z2": z2info.get("m_z2", np.nan),
+        "r50_z2_kpc": z2info.get("r50_z2_kpc", np.nan),
+        "bh_z2": z2info.get("bh_z2", np.nan),
+        "center_x_z2": z2info.get("center_x_z2", np.nan),
+        "center_y_z2": z2info.get("center_y_z2", np.nan),
+        "center_z_z2": z2info.get("center_z_z2", np.nan),
+        "v_x_z2_kms": z2info.get("v_x_z2_kms", np.nan),
+        "v_y_z2_kms": z2info.get("v_y_z2_kms", np.nan),
+        "v_z_z2_kms": z2info.get("v_z_z2_kms", np.nan),
+    })
+
+    # Derived quantities at z=0 and z=2.
+    for zlabel in ("z0", "z2"):
+        m = row.get(f"m_{zlabel}", np.nan)
+        r = row.get(f"r50_{zlabel}_kpc", np.nan)
+        bh = row.get(f"bh_{zlabel}", np.nan)
+
+        row[f"log10_mstar_{zlabel}"] = np.log10(m) if np.isfinite(m) and m > 0 else np.nan
+        row[f"log10_bh_ratio_{zlabel}"] = (
+            np.log10(bh / m)
+            if np.isfinite(bh) and bh > 0 and np.isfinite(m) and m > 0
+            else np.nan
+        )
+        row[f"compactness_sigma15_{zlabel}"] = (
+            np.log10(m / np.power(r, 1.5))
+            if np.isfinite(m) and m > 0 and np.isfinite(r) and r > 0
+            else np.nan
+        )
+
+    row["delta_log10_mstar_z0_minus_z2"] = (
+        row["log10_mstar_z0"] - row["log10_mstar_z2"]
+        if np.isfinite(row["log10_mstar_z0"]) and np.isfinite(row["log10_mstar_z2"])
+        else np.nan
+    )
+    row["delta_compactness_z0_minus_z2"] = (
+        row["compactness_sigma15_z0"] - row["compactness_sigma15_z2"]
+        if np.isfinite(row["compactness_sigma15_z0"])
+        and np.isfinite(row["compactness_sigma15_z2"])
+        else np.nan
+    )
 
     rows_out.append(row)
 
-# write CSV
-out_csv = os.path.join(OUTDIR, "extreme_relics_z0_to_z2_summary.csv")
-df_out = pd.DataFrame(rows_out)
+df_out = pd.DataFrame(rows_out).sort_values("track_id").reset_index(drop=True)
+
+out_csv = OUTDIR / "extreme_relics_z0_to_z2_summary.csv"
 df_out.to_csv(out_csv, index=False)
 print("Wrote summary CSV:", out_csv)
-print("Done.")
 
-# # ==============================================================
-# #               Z=2 ANALYSIS PLOTS (EXTREME RELICS)
-# # ==============================================================
+# -----------------------------------------------------------------------------
+# Summary diagnostics
+# -----------------------------------------------------------------------------
+valid_z2 = np.isfinite(df_out["m_z2"].to_numpy())
+print(f"Valid z=2 stellar masses: {valid_z2.sum()} / {len(df_out)}")
+print(f"Valid z=2 half-mass radii: {np.isfinite(df_out['r50_z2_kpc']).sum()} / {len(df_out)}")
+print(f"Valid z=2 BH masses: {np.isfinite(df_out['bh_z2']).sum()} / {len(df_out)}")
+print(
+    "Valid z=2 compact non-relics with finite BH ratio:",
+    len(compact_nonrelic_z2_rows),
+)
 
-# import matplotlib.pyplot as plt
+# -----------------------------------------------------------------------------
+# z=2 plots -- all based on the same z=0-selected relic sample
+# -----------------------------------------------------------------------------
+df = df_out.loc[np.isfinite(df_out["m_z2"])].copy()
 
-# print("\nGenerating z=2 analysis plots...")
+if df.empty:
+    print("No objects with valid z=2 stellar masses; skipping z=2 plots.")
+    sys.exit(0)
 
-# df = df_out.copy()
+print(f"Generating z=2 plots for {len(df)} relics with valid z=2 mass.")
 
-# # Only objects successfully found at z=2
-# df = df[np.isfinite(df["m_z2"])].copy()
+# ==============================================================
+# 1. BH mass ratio vs stellar mass -- z ~ 2
+#    Full z=2 population median + individual z=0 extreme relics
+# ==============================================================
 
-# if len(df) == 0:
-#     print("No objects with valid z=2 data — skipping plots.")
-#     sys.exit(0)
+print("\nGenerating z=2 BH-ratio vs stellar-mass plot...")
 
-# # -----------------------------
-# # 1) BH MASS RATIO PLOT (z=2)
-# # -----------------------------
-# with np.errstate(divide='ignore', invalid='ignore'):
-#     logM_z2 = np.log10(df["m_z2"].to_numpy())
-#     log_bh_ratio_z2 = df["log10_bh_ratio_z2"].to_numpy()
+# --------------------------------------------------------------
+# Parameters
+# --------------------------------------------------------------
+# Use the same stellar-mass binning style as the z=0 analysis.
+MASS_BINS = np.arange(9.0, 12.01, 0.25)
 
-# mask = np.isfinite(logM_z2) & np.isfinite(log_bh_ratio_z2)
+# Fine BH-ratio bins used to reconstruct median / percentiles
+# from the full z=2 population without storing all 1.2e8 galaxies.
+BH_RATIO_BINS = np.arange(-5.0, -0.49, 0.025)
 
-# plt.figure(figsize=(7,5))
-# plt.scatter(logM_z2[mask], log_bh_ratio_z2[mask],
-#             marker='*', s=120, edgecolor='k', facecolor='C1')
-# plt.xlabel(r"$\log_{10}(M_\star / M_\odot)$")
-# plt.ylabel(r"$\log_{10}(M_{\rm BH} / M_\star)$")
-# plt.title("Extreme relics at z≈2")
-# plt.grid(True)
-# plt.tight_layout()
-# plt.savefig(os.path.join(OUTDIR, "z2_BH_ratio_extremes.png"), dpi=200)
-# plt.close()
+# --------------------------------------------------------------
+# Build z=2 population median / p16 / p84 relation
+# --------------------------------------------------------------
+print("Reading full z=2 population in chunks to build median relation...")
 
-# print("Saved BH ratio plot (z=2).")
+n_mass_bins = len(MASS_BINS) - 1
+n_ratio_bins = len(BH_RATIO_BINS) - 1
 
-# # -----------------------------
-# # 2) HOST MASS HISTOGRAM (z=2)
-# # -----------------------------
-# if "host_mass" in df.columns:
-#     hm = df["host_mass"].to_numpy()
-#     mask = np.isfinite(hm) & (hm > 0)
+# Histogram:
+# rows    = stellar-mass bins
+# columns = BH-ratio bins
+H = np.zeros((n_mass_bins, n_ratio_bins), dtype=np.int64)
 
-#     if mask.sum() > 0:
-#         plt.figure(figsize=(6,4))
-#         plt.hist(np.log10(hm[mask]), bins=12, edgecolor='k')
-#         plt.xlabel("log10(host mass) [Msun]")
-#         plt.ylabel("N")
-#         plt.grid(True)
-#         plt.tight_layout()
-#         plt.savefig(os.path.join(OUTDIR, "z2_host_mass_hist.png"), dpi=200)
-#         plt.close()
-#         print("Saved host mass histogram (z=2).")
+with h5py.File(snap_path_z2, "r") as fh:
 
-# # -----------------------------
-# # 3) DISTANCE / HOST RADIUS
-# # -----------------------------
-# if "dist_over_hostR" in df.columns:
-#     x = df["host_mass"].to_numpy()
-#     y = df["dist_over_hostR"].to_numpy()
-#     mask = np.isfinite(x) & (x > 0) & np.isfinite(y)
+    ds_mstar = fh["ExclusiveSphere/50kpc/StellarMass"]
+    ds_bh = fh["ExclusiveSphere/50kpc/MostMassiveBlackHoleMass"]
+    ds_r50 = fh["ExclusiveSphere/50kpc/HalfMassRadiusStars"]
 
-#     if mask.sum() > 0:
-#         plt.figure(figsize=(6,4))
-#         plt.scatter(np.log10(x[mask]), y[mask], s=40)
-#         plt.axhline(1.0, linestyle="--", color="k")
-#         plt.xlabel("log10(host mass) [Msun]")
-#         plt.ylabel("dist / host_radius")
-#         plt.grid(True)
-#         plt.tight_layout()
-#         plt.savefig(os.path.join(OUTDIR, "z2_dist_over_hostR.png"), dpi=200)
-#         plt.close()
-#         print("Saved distance/host radius plot (z=2).")
+    nrows = ds_mstar.shape[0]
 
-# # -----------------------------
-# # 4) RELATIVE VELOCITY HISTOGRAM
-# # -----------------------------
-# if "v_rel" in df.columns:
-#     vr = df["v_rel"].to_numpy()
-#     mask = np.isfinite(vr)
+    # Full z≈2 mass-size population for the background scatter plot
+    full_logM = []
+    full_logR = []
 
-#     if mask.sum() > 0:
-#         plt.figure(figsize=(6,4))
-#         plt.hist(vr[mask], bins=25, edgecolor='k')
-#         plt.xlabel("v_rel [km/s]")
-#         plt.ylabel("N")
-#         plt.grid(True)
-#         plt.tight_layout()
-#         plt.savefig(os.path.join(OUTDIR, "z2_v_rel_hist.png"), dpi=200)
-#         plt.close()
-#         print("Saved v_rel histogram (z=2).")
+    for start in range(0, nrows, CHUNK):
+        stop = min(start + CHUNK, nrows)
 
-# # -----------------------------
-# # 5) v_rel vs host mass
-# # -----------------------------
-# if "v_rel" in df.columns and "host_mass" in df.columns:
-#     vr = df["v_rel"].to_numpy()
-#     hm = df["host_mass"].to_numpy()
-#     mask = np.isfinite(vr) & np.isfinite(hm) & (hm > 0)
+        m = np.asarray(ds_mstar[start:stop]).ravel() * Mu
+        bh = np.asarray(ds_bh[start:stop]).ravel() * Mu
 
-#     if mask.sum() > 0:
-#         plt.figure(figsize=(6,4))
-#         plt.scatter(np.log10(hm[mask]), vr[mask], s=40)
-#         plt.xlabel("log10(host mass) [Msun]")
-#         plt.ylabel("v_rel [km/s]")
-#         plt.grid(True)
-#         plt.tight_layout()
-#         plt.savefig(os.path.join(OUTDIR, "z2_v_rel_vs_host_mass.png"), dpi=200)
-#         plt.close()
-#         print("Saved v_rel vs host mass (z=2).")
+        valid = (
+            np.isfinite(m)
+            & np.isfinite(bh)
+            & (m >= MIN_STELLAR_MASS)
+            & (bh > 0)
+        )
 
-# print("All z=2 plots generated.")
+        r50 = (
+            np.asarray(ds_r50[start:stop]).ravel()
+            * (1.0 / (1.0 + 2.0))
+            * 1e3
+        )
+
+        valid &= np.isfinite(r50) & (r50 > 0)
+
+        if not np.any(valid):
+            continue
+
+        logM = np.log10(m[valid])
+        logBHratio = np.log10(bh[valid] / m[valid])
+        logR = np.log10(r50[valid])
+
+        full_logM.append(logM)
+        full_logR.append(logR)
+
+        h, _, _ = np.histogram2d(
+            logM,
+            logBHratio,
+            bins=[MASS_BINS, BH_RATIO_BINS],
+        )
+
+        H += h.astype(np.int64)
+
+full_logM = np.concatenate(full_logM)
+full_logR = np.concatenate(full_logR)
+# --------------------------------------------------------------
+# Reconstruct median / p16 / p84 from histogram
+# --------------------------------------------------------------
+bin_centres = 0.5 * (MASS_BINS[:-1] + MASS_BINS[1:])
+
+medians = np.full(n_mass_bins, np.nan)
+p16 = np.full(n_mass_bins, np.nan)
+p84 = np.full(n_mass_bins, np.nan)
+
+ratio_centres = 0.5 * (BH_RATIO_BINS[:-1] + BH_RATIO_BINS[1:])
+
+for i in range(n_mass_bins):
+
+    counts = H[i]
+
+    if counts.sum() == 0:
+        continue
+
+    cumulative = np.cumsum(counts)
+    total = cumulative[-1]
+
+    # percentile helper
+    def hist_percentile(q):
+        target = q * total
+        idx = np.searchsorted(cumulative, target, side="left")
+        idx = min(max(idx, 0), len(ratio_centres) - 1)
+        return ratio_centres[idx]
+
+    p16[i] = hist_percentile(0.16)
+    medians[i] = hist_percentile(0.50)
+    p84[i] = hist_percentile(0.84)
+
+finite_bins = np.isfinite(medians)
+
+# --------------------------------------------------------------
+# Prepare the z=0 extreme relics at z=2
+# using their ORIGINAL z=0 SRG/SAG classification
+# --------------------------------------------------------------
+
+sel_ext_z2 = (
+    np.isfinite(df["log10_mstar_z2"])
+    & np.isfinite(df["log10_bh_ratio_z2"])
+)
+
+# Carry the ORIGINAL z=0 classification to z=2.
+# A galaxy is an "SRG at z=2" here because it is an SRG
+# in the z=0 sample; we are plotting its progenitor position at z=2.
+sel_srg_z0class = (
+    sel_ext_z2
+    & np.isfinite(df["compactness_sigma15_z0"])
+    & (df["compactness_sigma15_z0"] >= COMPACTNESS_CUT)
+)
+
+sel_sag_z0class = (
+    sel_ext_z2
+    & np.isfinite(df["compactness_sigma15_z0"])
+    & (df["compactness_sigma15_z0"] < COMPACTNESS_CUT)
+)
+
+# Central / satellite split at z=2, but only for galaxies that
+# were classified as SRGs at z=0, matching your original z=0 plot.
+if "is_central_z2" in df.columns:
+    cen_srg_z2 = (
+        sel_srg_z0class
+        & (df["is_central_z2"] == True)
+    )
+
+    sat_srg_z2 = (
+        sel_srg_z0class
+        & (df["is_central_z2"] == False)
+    )
+else:
+    cen_srg_z2 = np.zeros(len(df), dtype=bool)
+    sat_srg_z2 = np.zeros(len(df), dtype=bool)
+
+print(
+    "z=2 positions of z=0 SRGs:",
+    int(sel_srg_z0class.sum())
+)
+
+print(
+    "z=2 positions of z=0 SAGs:",
+    int(sel_sag_z0class.sum())
+)
+
+print(
+    "z=2 positions of z=0 SRGs with valid central/satellite flag:",
+    int((cen_srg_z2 | sat_srg_z2).sum())
+)
+
+# --------------------------------------------------------------
+# Plot
+# --------------------------------------------------------------
+fig, ax = plt.subplots(figsize=(8, 5))
+
+# Full z=2 population median relation
+if np.any(finite_bins):
+
+    x = bin_centres[finite_bins]
+    med = medians[finite_bins]
+    lo = med - p16[finite_bins]
+    hi = p84[finite_bins] - med
+
+    ax.errorbar(
+        x,
+        med,
+        yerr=[lo, hi],
+        fmt="o-",
+        capsize=3,
+        lw=1.5,
+        zorder=100,
+        label="z≈2 population median (16/84)",
+    )
+
+# --------------------------------------------------------------
+# Individual z=0-defined populations at z=2
+# --------------------------------------------------------------
+
+# z=0 compact non-relics, shown at their z=2 positions
+if compact_nonrelic_z2_rows:
+    compact_nr = pd.DataFrame(compact_nonrelic_z2_rows)
+    ax.scatter(
+        compact_nr["log10_mstar_z2"],
+        compact_nr["log10_bh_ratio_z2"],
+        facecolor="lightgrey",
+        edgecolor="lightgrey",
+        s=10,
+        alpha=0.5,
+        linewidth=0.5,
+        zorder=10,
+        label="z=0 compact non-relics at z≈2",
+    )
+
+# z=0 SAGs, shown at their z=2 positions
+if np.any(sel_sag_z0class):
+    ax.scatter(
+        df.loc[sel_sag_z0class, "log10_mstar_z2"],
+        df.loc[sel_sag_z0class, "log10_bh_ratio_z2"],
+        facecolor="C1",
+        edgecolor="C1",
+        s=15,
+        marker="d",
+        linewidth=0.7,
+        zorder=110,
+        label="z=0 SAGs at z≈2",
+    )
+
+# z=0 SRGs, shown at their z=2 positions
+if np.any(sel_srg_z0class):
+    ax.scatter(
+        df.loc[sel_srg_z0class, "log10_mstar_z2"],
+        df.loc[sel_srg_z0class, "log10_bh_ratio_z2"],
+        facecolor="C2",
+        edgecolor="C2",
+        s=30,
+        marker="*",
+        linewidth=0.7,
+        zorder=120,
+        label="z=0 SRGs at z≈2",
+    )
+
+# --------------------------------------------------------------
+# z=2 SRG central / satellite median markers
+# --------------------------------------------------------------
+for mask, edgecol, facecol, label in [
+    (cen_srg_z2, "red", "green", "z≈2 SRG centrals (median)"),
+    (sat_srg_z2, "blue", "green", "z≈2 SRG satellites (median)"),
+]:
+    if np.sum(mask) == 0:
+        continue
+
+    x_med = np.nanmedian(df.loc[mask, "log10_mstar_z2"])
+    y_med = np.nanmedian(df.loc[mask, "log10_bh_ratio_z2"])
+
+    x_std = np.nanstd(df.loc[mask, "log10_mstar_z2"])
+    y_std = np.nanstd(df.loc[mask, "log10_bh_ratio_z2"])
+
+    ax.errorbar(
+        x_med,
+        y_med,
+        xerr=x_std,
+        yerr=y_std,
+        fmt="*",
+        markersize=16,
+        markerfacecolor=facecol,
+        markeredgecolor=edgecol,
+        markeredgewidth=2.0,
+        ecolor=edgecol,
+        elinewidth=1.8,
+        capsize=4,
+        zorder=200,
+        label=label,
+    )
+
+# --------------------------------------------------------------
+# Formatting
+# --------------------------------------------------------------
+ax.set_xlabel(r"$\log_{10}(M_\star/M_\odot)$")
+ax.set_ylabel(r"$\log_{10}(M_{\rm BH}/M_\star)$")
+
+ax.set_title(r"$z\approx2$")
+
+ax.grid(True, alpha=0.25)
+ax.legend(loc="best", fontsize=9)
+
+ax.relim()
+ax.autoscale_view(True, True, True)
+
+ymin, ymax = ax.get_ylim()
+ypad = 0.06 * (ymax - ymin)
+ax.set_ylim(ymin - ypad, ymax + ypad)
+
+fig.tight_layout()
+
+outbh = OUTDIR / "BHratio_log10_median_vs_mass_z2.pdf"
+fig.savefig(outbh, dpi=200, bbox_inches="tight")
+
+outbh_png = OUTDIR / "BHratio_log10_median_vs_mass_z2.png"
+fig.savefig(outbh_png, dpi=200, bbox_inches="tight")
+
+plt.close(fig)
+
+print("Saved:", outbh)
+print("Saved:", outbh_png)
+
+# 2. Mass-size plane
+mask = (
+    np.isfinite(df["log10_mstar_z2"])
+    & np.isfinite(df["r50_z2_kpc"])
+    & (df["r50_z2_kpc"] > 0)
+)
+if mask.any():
+    fig, ax = plt.subplots(figsize=(7, 6))
+    # z=0 SAGs at their z≈2 positions
+    ax.scatter(
+        df.loc[sel_sag_z0class, "log10_mstar_z2"],
+        np.log10(df.loc[sel_sag_z0class, "r50_z2_kpc"]),
+        marker="d",
+        s=18,
+        color="C1",
+        alpha=0.8,
+        label="z=0 SAGs",
+    )
+
+    # z=0 SRGs at their z≈2 positions
+    ax.scatter(
+        df.loc[sel_srg_z0class, "log10_mstar_z2"],
+        np.log10(df.loc[sel_srg_z0class, "r50_z2_kpc"]),
+        marker="*",
+        s=45,
+        color="C2",
+        alpha=0.9,
+        label="z=0 SRGs",
+    )
+    # Compactness threshold (Sigma_1.5 = 9.75)
+    xline = np.linspace(9.0, 12.0, 200)
+    yline = (xline - COMPACTNESS_CUT) / 1.5
+
+    ax.plot(
+        xline,
+        yline,
+        "--",
+        color="k",
+        lw=1.5,
+        label=rf"$\log\Sigma_{{1.5}}={COMPACTNESS_CUT:.2f}$",
+    )
+    ax.set_xlabel(r"$\log_{10}(M_\star/M_\odot)$")
+    ax.set_ylabel(r"$\log_{10}(R_{50}/{\rm kpc})$")
+    # ax.set_title("z≈2 mass-size plane: z=0 extreme relics")
+    ax.grid(alpha=0.25)
+    ax.legend(loc="best", fontsize=9, frameon=False)
+    fig.tight_layout()
+    fig.savefig(OUTDIR / "z2_mass_size_extremes.png", dpi=200)
+    plt.close(fig)
+    print("Saved:", OUTDIR / "z2_mass_size_extremes.png")
+
+# 3. Compactness distribution
+mask = np.isfinite(df["compactness_sigma15_z2"])
+if mask.any():
+    fig, ax = plt.subplots(figsize=(7, 5))
+    ax.hist(df.loc[mask, "compactness_sigma15_z2"], bins=20)
+    ax.set_xlabel(r"$\log_{10}(M_\star/R_{50}^{1.5})$")
+    ax.set_ylabel("N")
+    ax.set_title("z≈2 compactness of z=0 extreme relics")
+    ax.grid(alpha=0.25)
+    fig.tight_layout()
+    fig.savefig(OUTDIR / "z2_compactness_extremes.png", dpi=200)
+    plt.close(fig)
+    print("Saved:", OUTDIR / "z2_compactness_extremes.png")
+
+# 4. Central/satellite fraction
+if "is_central_z2" in df.columns:
+    central_numeric = pd.to_numeric(df["is_central_z2"], errors="coerce")
+    n_central_valid = central_numeric.notna().sum()
+    if n_central_valid:
+        central_fraction = float((central_numeric.dropna() > 0.5).mean())
+        text_path = OUTDIR / "z2_central_fraction.txt"
+        text_path.write_text(
+            f"z=2 central fraction among z=0 extreme relics with valid IsCentral: "
+            f"{central_fraction:.6f}\n"
+            f"N with valid IsCentral: {n_central_valid}\n"
+        )
+        print("Saved:", text_path)
+
+# ==========================================================
+# Full z≈2 mass-size plane with highlighted progenitors
+# ==========================================================
+
+fig, ax = plt.subplots(figsize=(8, 6))
+
+# ----------------------------------------------------------
+# Entire z≈2 galaxy population
+# ----------------------------------------------------------
+ax.scatter(
+    full_logM,
+    full_logR,
+    s=8,
+    color="lightgrey",
+    alpha=0.6,
+    rasterized=True,
+    label=r"simulated galaxies at $z\approx2$",
+)
+
+# ----------------------------------------------------------
+# Compactness threshold
+# ----------------------------------------------------------
+xm = np.linspace(
+    np.nanmin(full_logM) - 0.2,
+    np.nanmax(full_logM) + 0.2,
+    400,
+)
+
+compact_line = (xm - COMPACTNESS_CUT) / 1.5
+
+ax.plot(
+    xm,
+    compact_line,
+    "--",
+    color="black",
+    lw=2,
+    label=rf"compactness threshold $\log_{{10}}\Sigma_{{1.5}}={COMPACTNESS_CUT}$",
+)
+
+# ----------------------------------------------------------
+# z=0 SAG progenitors at z≈2
+# ----------------------------------------------------------
+ax.scatter(
+    df.loc[sel_sag_z0class, "log10_mstar_z2"],
+    np.log10(df.loc[sel_sag_z0class, "r50_z2_kpc"]),
+    marker="d",
+    s=15,
+    color="C1",
+    edgecolors="none",
+    zorder=20,
+    label=fr"non-compact SAGs (DoR > {EXTREME_DOR})",
+)
+
+# ----------------------------------------------------------
+# z=0 SRG progenitors at z≈2
+# ----------------------------------------------------------
+ax.scatter(
+    df.loc[sel_srg_z0class, "log10_mstar_z2"],
+    np.log10(df.loc[sel_srg_z0class, "r50_z2_kpc"]),
+    marker="*",
+    s=30,
+    color="C2",
+    edgecolors="none",
+    zorder=30,
+    label=fr"SRGs (DoR > {EXTREME_DOR})",
+)
+
+# ----------------------------------------------------------
+# Formatting
+# ----------------------------------------------------------
+ax.set_xlabel(r"$\log_{10}(M_\star/M_\odot)$")
+ax.set_ylabel(r"$\log_{10}(R_{1/2,\star}/{\rm kpc})$")
+
+ax.grid(True)
+
+ax.legend(
+    fontsize=9,
+    loc="lower right",
+)
+
+fig.tight_layout()
+
+fig.savefig(
+    OUTDIR / "z2_mass_size_full_population_with_SRGs.png",
+    dpi=250,
+    bbox_inches="tight",
+)
+
+plt.close(fig)
+
+print("Saved:", OUTDIR / "z2_mass_size_full_population_with_SRGs.png")
+
+print("All requested z=2 analysis completed.")

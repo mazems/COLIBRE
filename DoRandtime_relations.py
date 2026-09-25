@@ -42,10 +42,18 @@ comov_to_physical_length = 1.0 / (1.0 + ztarget)
 outdir = "plots_dor"
 os.makedirs(outdir, exist_ok=True)
 
-COMPACTNESS_CUT = 9.72
+COMPACTNESS_CUT = 9.75
 EXTREME_DOR = 0.6
 dor_column_candidates = ["DoR_t95"] #, "DoR_t998", "DoR_t90", "DoR_tfin", "dor", "DoR", "DoR_choice", "DoR_csv"]
 
+CBAR_LABELS = {
+    "t50":  r"$t_{50}\;[\mathrm{Gyr}]$",
+    "t75":  r"$t_{75}\;[\mathrm{Gyr}]$",
+    "t90":  r"$t_{90}\;[\mathrm{Gyr}]$",
+    "t95":  r"$t_{95}\;[\mathrm{Gyr}]$",
+    "t998": r"$t_{998}\;[\mathrm{Gyr}]$",
+    "tfin": r"$t_{\rm fin}\;[\mathrm{Gyr}]$",
+}
 # LOESS evaluation budget (None => all points)
 MAX_EVAL_PTS = None
 
@@ -67,11 +75,11 @@ def save_fig(fig, fname):
 
 #     if color_arr is not None:
 #         order = np.argsort(color_arr[ok])[::-1]
-#         # sc = ax.scatter(x[ok][order], y[ok][order], c=color_arr[ok][order], s=12, alpha=0.5, vmin=-0.2, vmax=0.2)
+#         # sc = ax.scatter(x[ok][order], y[ok][order], c=color_arr[ok][order], s=12, alpha=0.5, vmin=8, vmax=float(np.nanpercentile(m_compactness, 99))) #, vmin=-0.2, vmax=0.2)
 #         norm = TwoSlopeNorm(
-#             vmin=-0.20,
-#             vcenter=0.0,
-#             vmax=0.20
+#             vmin=8.5, #0.05,
+#             vcenter=9.75, #0.15,
+#             vmax=10.5, #0.25
 #         )
 
 #         print("colour quantity range:",
@@ -88,7 +96,7 @@ def save_fig(fig, fname):
 #             norm=norm
 #         )
 #         cbar = plt.colorbar(sc, ax=ax)
-#         cbar.set_label(r"$\lg[Z / H]$") #r"$\lg[Z_\star / Z_\odot]$"
+#         cbar.set_label(r"$\log_{10}(\Sigma_{1.5}\,[M_\odot\,\mathrm{kpc}^{-1.5}])$") #r"$\log_{10}(\Sigma_{1.5}\,[M_\odot\,\mathrm{kpc}^{-1.5}])$" # "[Z/H]" 
 #         cbar.solids.set_alpha(1)
 #     else:
 #         ax.scatter(x[ok], y[ok], s=12, alpha=0.7)
@@ -118,9 +126,9 @@ def save_fig(fig, fname):
 #         ax.fill_between(xc[finite_med], lo[finite_med], hi[finite_med], color="black", alpha=0.2)
 
 #     ax.axhline(EXTREME_DOR, color='C1', linestyle='--', lw=1.5, label=f"relic threshold DoR={EXTREME_DOR}")
-#     if isinstance(xlabel, str) and "compact" in xlabel.lower():
-#         ax.axvline(COMPACTNESS_CUT, color='black', linestyle='--', lw=1.5,
-#                    label=fr"compactness threshold $\lg\Sigma_{{1.5}}={COMPACTNESS_CUT}$")
+#     #if isinstance(xlabel, str) and "compact" in xlabel.lower():
+#     # ax.axvline(COMPACTNESS_CUT, color='black', linestyle='--', lw=1.5,
+#     #             label=fr"compactness threshold $\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}}))={COMPACTNESS_CUT}$")
 
 #     ax.legend(fontsize=8)
 #     ax.set_xlabel(xlabel)
@@ -139,6 +147,7 @@ def _plot_dor_vs_quantity_core(
     xlabel,
     color_arr=None,
     cbar_label=r"$f_\mathrm{ex-situ}$",
+    show_compactness_line=False,
 ):
     ok = np.isfinite(x) & np.isfinite(y)
     if color_arr is not None:
@@ -156,8 +165,10 @@ def _plot_dor_vs_quantity_core(
             x[ok][order],
             y[ok][order],
             c=color_arr[ok][order],
-            s=12,
-            alpha=0.5
+            linewidths=0,
+            rasterized=True,
+            s=8,
+            alpha=0.15
         )
     else:
         ax.scatter(x[ok], y[ok], s=12, alpha=0.7)
@@ -200,18 +211,18 @@ def _plot_dor_vs_quantity_core(
         label=f"relic threshold DoR={EXTREME_DOR}"
     )
 
-    if isinstance(xlabel, str) and "compact" in xlabel.lower():
+    if show_compactness_line:
         ax.axvline(
             COMPACTNESS_CUT,
             color="black",
             linestyle="--",
             lw=1.5,
-            label=fr"compactness threshold $\lg\Sigma_{{1.5}}={COMPACTNESS_CUT}$"
+            label=f"compactness threshold\n" fr"$\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}}))={COMPACTNESS_CUT}$"
         )
 
-    ax.legend(fontsize=8)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel("DoR")
+    ax.legend(fontsize=10)
+    ax.set_xlabel(xlabel, fontsize=13)
+    ax.set_ylabel("DoR", fontsize=13)
     ax.set_ylim(0, 1)
     ax.grid(True)
 
@@ -325,7 +336,7 @@ def loess_coloured_dor_vs_quantity(xvals, yvals, zvals, xlabel, fname,
     # loess field
     im = ax.pcolormesh(Xg, Yg, Zmask, shading="auto", cmap="viridis", vmin=vmin, vmax=vmax, zorder=1)
     cbar = fig.colorbar(im, ax=ax)
-    cbar.set_label(cbar_label or r"$\lg(\mathrm{sSFR}\ /\ \mathrm{yr}^{-1})$")
+    cbar.set_label(cbar_label or r"$\log_{10}(\mathrm{sSFR}\ /\ \mathrm{yr}^{-1})$")
 
     if idx_inside.size > 0:
         ax.scatter(pts_grid[idx_inside, 0], pts_grid[idx_inside, 1],
@@ -335,7 +346,7 @@ def loess_coloured_dor_vs_quantity(xvals, yvals, zvals, xlabel, fname,
                label=f"relic threshold DoR={EXTREME_DOR}")
     if isinstance(xlabel, str) and "compact" in xlabel.lower():
         ax.axvline(COMPACTNESS_CUT, color="black", linestyle="--", lw=1.5,
-                   label=fr"CMG threshold $\lg\Sigma_{{1.5}}={COMPACTNESS_CUT}$")
+                   label=fr"CMG threshold $\log_{10}\Sigma_{{1.5}}={COMPACTNESS_CUT}$")
 
     ax.set_xlabel(xlabel)
     ax.set_ylabel("DoR")
@@ -492,9 +503,9 @@ def scatter_coloured_mass_size(xvals, yvals, zvals, fname, cbar_label=None):
         ax.scatter(xvals[~finite], yvals[~finite], color="lightgrey", s=8, alpha=0.6, label="missing")
     xm = np.linspace(np.nanmin(logM)-0.1, np.nanmax(logM)+0.1, 400)
     yr = (xm - COMPACTNESS_CUT) / 1.5
-    ax.plot(xm, yr, linestyle='--', color='black', label=fr"compactness threshold $\lg\Sigma_{{1.5}}={COMPACTNESS_CUT}$")
-    ax.set_xlabel(r"lg($M_\star / M_{\odot}$)")
-    ax.set_ylabel(r"lg(Half Mass Radius / kpc)")
+    ax.plot(xm, yr, linestyle='--', color='black', label=fr"compactness threshold $\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}}))={COMPACTNESS_CUT}$")
+    ax.set_xlabel(r"log_{10}($M_\star / M_{\odot}$)")
+    ax.set_ylabel(r"log_{10}(Half Mass Radius / kpc)")
     ax.legend(fontsize=8)
     ax.grid(True)
     save_fig(fig, fname)
@@ -545,10 +556,12 @@ def loess_coloured_mass_size(xvals, yvals, zvals, fname, cbar_label=None, nx=300
     Zgrid = Zflat.reshape((ny, nx))
     Zmask = np.ma.masked_invalid(Zgrid)
 
-    try:
-        vmin = float(np.nanpercentile(z_in, 5)); vmax = float(np.nanpercentile(z_in, 95))
-    except Exception:
-        vmin, vmax = float(np.nanmin(z_in)), float(np.nanmax(z_in))
+    # try:
+    #     vmin = float(np.nanpercentile(z_in, 5)); vmax = float(np.nanpercentile(z_in, 95))
+    # except Exception:
+    #     vmin, vmax = float(np.nanmin(z_in)), float(np.nanmax(z_in))
+    vmin = 6.8
+    vmax = 13.8
     if not np.isfinite(vmin) or not np.isfinite(vmax) or vmin == vmax:
         med = float(np.nanmedian(z_in)); span = max(0.2, 0.5 * max(1e-6, abs(med)))
         vmin = med - span; vmax = med + span
@@ -557,15 +570,17 @@ def loess_coloured_mass_size(xvals, yvals, zvals, fname, cbar_label=None, nx=300
     #ax.scatter(logM, logR, s=6, color="lightgrey", alpha=0.5, label=f"simulated galaxies at $z=0$")
     im = ax.pcolormesh(Xg, Yg, Zmask, shading='auto', cmap='viridis', vmin=vmin, vmax=vmax)
     cbar = fig.colorbar(im, ax=ax)
-    cbar.set_label(cbar_label if cbar_label is not None else fname)
+    # cbar.set_label(cbar_label if cbar_label is not None else fname)
+    label = CBAR_LABELS.get(cbar_label, cbar_label)
+    cbar.set_label(label if label is not None else fname)
     if idx_inside.size > 0:
         ax.scatter(pts_grid[idx_inside,0], pts_grid[idx_inside,1], s=1, c='k', alpha=0.03, linewidths=0)
     xm = np.linspace(np.nanmin(logM)-0.1, np.nanmax(logM)+0.1, 400)
     yr = (xm - COMPACTNESS_CUT) / 1.5
-    ax.plot(xm, yr, linestyle='--', color='black', label=fr"compactness threshold $\lg\Sigma_{{1.5}}={COMPACTNESS_CUT}$")
-    ax.set_xlabel(r"lg($M_\star / M_{\odot}$)")
-    ax.set_ylabel(r"lg(Half Mass Radius / kpc)")
-    ax.legend(fontsize=8)
+    ax.plot(xm, yr, linestyle='--', color='black', label=fr"compactness threshold $\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}}))={COMPACTNESS_CUT}$")
+    ax.set_xlabel(r"$\log_{{10}}(M_\star / \mathrm{M}_\odot)$")
+    ax.set_ylabel(r"$\log_{{10}}(R_{1/2, \star} / \mathrm{kpc})$")
+    ax.legend(fontsize=11)
     ax.grid(True)
     save_fig(fig, fname)
 
@@ -721,53 +736,53 @@ with np.errstate(divide="ignore", invalid="ignore"):
                         np.nan)
     log_bh_ratio = np.where(np.isfinite(bh_ratio) & (bh_ratio > 0), np.log10(bh_ratio), np.nan)
 
-# # --------------------------------------------------------------
-# # LOAD HOST VELOCITY DISPERSION (CORRECT + ALIGNED)
-# # --------------------------------------------------------------
-# sigma_path = "/mnt/su3-pro/colibre/L0200N3008/THERMAL_AGN/SOAP-HBT/extra/halo_properties_0127.hdf5"
+# --------------------------------------------------------------
+# LOAD HOST VELOCITY DISPERSION (CORRECT + ALIGNED)
+# --------------------------------------------------------------
+sigma_path = "/mnt/su3-pro/colibre/L0200N3008/THERMAL_AGN/SOAP-HBT/extra/halo_properties_0127.hdf5"
 
-# # mask of galaxies you actually want to plot
-# mask_positive_full = (m30 >= 1e9) & (m30 > 0) & (r50 > 0)
+# mask of galaxies you actually want to plot
+mask_positive_full = (m30 >= 1e9) & (m30 > 0) & (r50 > 0)
 
-# # row positions in the SOAP catalogue
-# row_idx = np.flatnonzero(mask_positive_full)
+# row positions in the SOAP catalogue
+row_idx = np.flatnonzero(mask_positive_full)
 
-# # allocate full-length array if you want to keep SOAP alignment
-# sigma_full = np.full(m30.shape, np.nan, dtype=np.float32)
+# allocate full-length array if you want to keep SOAP alignment
+sigma_full = np.full(m30.shape, np.nan, dtype=np.float32)
 
-# sigma_path = "/mnt/su3-pro/colibre/L0200N3008/THERMAL_AGN/SOAP-HBT/extra/halo_properties_0127.hdf5"
-# sigma_ds = "/ExclusiveSphere/HalfMassRadiusStars/StellarCylindricalVelocityDispersionVerticalLuminosityWeighted"
+sigma_path = "/mnt/su3-pro/colibre/L0200N3008/THERMAL_AGN/SOAP-HBT/extra/halo_properties_0127.hdf5"
+sigma_ds = "/ExclusiveSphere/HalfMassRadiusStars/StellarCylindricalVelocityDispersionVerticalLuminosityWeighted"
 
-# if os.path.exists(sigma_path):
-#     with h5py.File(sigma_path, "r") as f:
-#         ds = f[sigma_ds]
-#         print("sigma dataset shape:", ds.shape)
+if os.path.exists(sigma_path):
+    with h5py.File(sigma_path, "r") as f:
+        ds = f[sigma_ds]
+        print("sigma dataset shape:", ds.shape)
 
-#         # read only the selected rows
-#         rows = np.asarray(ds[row_idx, :], dtype=np.float32)   # shape (N, 9)
+        # read only the selected rows
+        rows = np.asarray(ds[row_idx, :], dtype=np.float32)   # shape (N, 9)
 
-#         # diagonal components of the 3x3 tensor
-#         sigma_rr   = rows[:, 0]
-#         sigma_pphi = rows[:, 4]
-#         sigma_zz   = rows[:, 8]
+        # diagonal components of the 3x3 tensor
+        sigma_rr   = rows[:, 0]
+        sigma_pphi = rows[:, 4]
+        sigma_zz   = rows[:, 8]
 
-#         # your requested scalar sigma
-#         sigma_sel = np.sqrt((sigma_rr**2 + sigma_pphi**2 + sigma_zz**2)/3)
+        # your requested scalar sigma
+        sigma_sel = np.sqrt((sigma_rr**2 + sigma_pphi**2 + sigma_zz**2)/3)
 
-#         # put back into full SOAP-aligned array
-#         sigma_full[row_idx] = sigma_sel
+        # put back into full SOAP-aligned array
+        sigma_full[row_idx] = sigma_sel
 
-#         # log sigma for plotting
-#         log_sigma_full = np.full(m30.shape, np.nan, dtype=np.float32)
-#         log_sigma_full[row_idx] = np.where(sigma_sel > 0, np.log10(sigma_sel), np.nan)
+        # log sigma for plotting
+        log_sigma_full = np.full(m30.shape, np.nan, dtype=np.float32)
+        log_sigma_full[row_idx] = np.where(sigma_sel > 0, np.log10(sigma_sel), np.nan)
 
-#     print("Loaded sigma values:", np.isfinite(sigma_sel).sum(), "/", sigma_sel.size)
-#     print("N(sigma == 0):", np.count_nonzero(np.isclose(sigma_sel[np.isfinite(sigma_sel)], 0.0)))
-# else:
-#     print("Sigma file not found.")
+    print("Loaded sigma values:", np.isfinite(sigma_sel).sum(), "/", sigma_sel.size)
+    print("N(sigma == 0):", np.count_nonzero(np.isclose(sigma_sel[np.isfinite(sigma_sel)], 0.0)))
+else:
+    print("Sigma file not found.")
 
-# sigma_vals = sigma_full[mask_positive_full]
-# log_sigma_vals = log_sigma_full[mask_positive_full]
+sigma_vals = sigma_full[mask_positive_full]
+log_sigma_vals = log_sigma_full[mask_positive_full]
 
 # ------------------------ LOAD ex-situ summary (optional) ------------------------
 exsitu_lookup = {}
@@ -983,11 +998,11 @@ plt.plot(
     yr,
     linestyle="--",
     color="black",
-    label=fr"Compactness threshold ($\lg{{\Sigma_{{1.5}}}} = {COMPACTNESS_CUT}$)"
+    label=fr"Compactness threshold ($\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}})) = {COMPACTNESS_CUT}$)"
 )
 
-plt.xlabel(r"lg($M_\star / M_{\odot}$)")
-plt.ylabel(r"lg(Half Mass Radius / kpc)")
+plt.xlabel(r"$\log_{10}(M_\star / M_{\odot}$)")
+plt.ylabel(r"$\log_{10}(R_{1/2, \star} / \mathrm{kpc})$")
 plt.legend(fontsize=8)
 plt.grid(True)
 
@@ -1007,17 +1022,17 @@ print("min/max:", np.nanmin(exsitu_fracs_matched), np.nanmax(exsitu_fracs_matche
 # mask_sr = ~(m_logR > 12.4 - m_logM) #(m_logM > 11)
 # print("Number of galaxies before", len(m_logR), "and after", len(m_logR[mask_sr]), "removing slow rotators")
 # Summary (all matched UCMGs) DoR vs quantities
-# loess_coloured_dor_vs_quantity(m_compactness, matched_dor, exsitu_fracs_matched, r"Compactness ($\lg[M_\odot \text{kpc}^{-1.5}]$)", "DoR_vs_compactness.png", cbar_label=r"$f_\mathrm{ex-situ}$")
-# plot_dor_vs_quantity(m_compactness,  matched_dor, "Compactness",           "DoR_vs_compactness.png", color_arr=exsitu_fracs_matched)
-# plot_dor_vs_quantity(m_logZstar_rel,  matched_dor, r"$\lg[Z / H]$",           "DoR_vs_metallicity.png", color_arr=exsitu_fracs_matched)
+# loess_coloured_dor_vs_quantity(m_compactness, matched_dor, exsitu_fracs_matched, r"Compactness ($\log_{10}[M_\odot \text{kpc}^{-1.5}]$)", "DoR_vs_compactness.png", cbar_label=r"$f_\mathrm{ex-situ}$")
+# plot_dor_vs_quantity(m_compactness,  matched_dor, r"$\log_{10}(\Sigma_{1.5}\,[M_\odot\,\mathrm{kpc}^{-1.5}])$",           "DoR_vs_compactness.png", color_arr=m_mgfe)
+# plot_dor_vs_quantity(m_logZstar_rel,  matched_dor, "[Z/H]",           "DoR_vs_metallicity.png", color_arr=exsitu_fracs_matched)
 # plot_dor_vs_quantity(m_mgfe,  matched_dor, "[Mg/Fe]",           "DoR_vs_MgFe.png", color_arr=exsitu_fracs_matched)
-# plot_dor_vs_quantity(exsitu_fracs_matched,  matched_dor, r"$f_\mathrm{ex-situ}$",           "DoR_vs_exsitu.png", color_arr=m_compactness)
+plot_dor_vs_quantity(exsitu_fracs_matched,  matched_dor, r"$f_\mathrm{ex-situ}$",           "DoR_vs_exsitu.pdf", color_arr=m_compactness)
 # loess_coloured_dor_vs_quantity(m_mgfe,      matched_dor, exsitu_fracs_matched, "[Mg/Fe]",    "DoR_vs_MgFe.png", cbar_label=r"$f_\mathrm{ex-situ}$")
 # loess_coloured_dor_vs_quantity(m_age,       matched_dor, exsitu_fracs_matched, "Lum-weighted age [Gyr]",     "DoR_vs_age.png", cbar_label=r"$f_\mathrm{ex-situ}$")
 # loess_coloured_dor_vs_quantity(m_log_ssfr,       matched_dor, exsitu_fracs_matched, "lg(sSFR / yr⁻¹)",     "DoR_vs_sSFR.png", cbar_label=r"$f_\mathrm{ex-situ}$")
 # plot_dor_vs_quantity(m_log_ssfr,  matched_dor, "lg(sSFR / yr⁻¹)",           "DoR_vs_sSFR.png")
 # loess_coloured_dor_vs_quantity(exsitu_fracs_matched, matched_dor, exsitu_fracs_matched, r"$f_\mathrm{ex-situ}$",           "DoR_vs_exsitu.png", cbar_label=r"$\lg(\text{sSFR}\ /\ \text{yr}^{-1})$")
-# loess_coloured_dor_vs_quantity(m_logZstar_rel, matched_dor, exsitu_fracs_matched, r"$\lg[Z / H]$",           "DoR_vs_metallicity.png", cbar_label=r"$f_\mathrm{ex-situ}$")
+# loess_coloured_dor_vs_quantity(m_logZstar_rel, matched_dor, exsitu_fracs_matched, "[Z/H]",           "DoR_vs_metallicity.png", cbar_label=r"$f_\mathrm{ex-situ}$")
 # loess_coloured_dor_vs_quantity(log_sigma_matched,      matched_dor, exsitu_fracs_matched, r'$\lg(\sigma / \mathrm{km}\ \mathrm{s}^{-1})$',    "DoR_vs_sigma.png", cbar_label=r"$f_\mathrm{ex-situ}$")
 
 # Combined DoR vs quantity 3-figure
@@ -1032,7 +1047,7 @@ sc1 = _plot_dor_vs_quantity_core(
     ax1,
     m_logZstar_rel,
     matched_dor,
-    r"$\lg[Z / H]$",
+    r"$[\mathrm{Z}/\mathrm{H}]$",
     color_arr=exsitu_fracs_matched
 )
 
@@ -1040,7 +1055,7 @@ sc2 = _plot_dor_vs_quantity_core(
     ax2,
     m_mgfe,
     matched_dor,
-    "[Mg/Fe]",
+    r"$[\mathrm{Mg}/\mathrm{Fe}]$",
     color_arr=exsitu_fracs_matched
 )
 
@@ -1048,8 +1063,9 @@ sc3 = _plot_dor_vs_quantity_core(
     ax3,
     m_compactness,
     matched_dor,
-    "Compactness",
-    color_arr=exsitu_fracs_matched
+    r"$\log_{10}(\Sigma_{1.5}/(\mathrm{M}_\odot\,\mathrm{kpc}^{-1.5}))$",
+    color_arr=exsitu_fracs_matched,
+    show_compactness_line=True
 )
 
 # keep y-axis only on left panel
@@ -1064,13 +1080,13 @@ if sc3 is not None:
     cbar = fig.colorbar(sc3, cax=cax)
     cbar.set_label(r"$f_\mathrm{ex-situ}$")
     cbar.solids.set_alpha(1)
-plt.savefig(os.path.join(outdir, "combined_panels.png"), dpi=250, bbox_inches="tight")
+plt.savefig(os.path.join(outdir, "combined_panels.pdf"), dpi=250, bbox_inches="tight")
 plt.close(fig)
 
 # 3) scatter + LOESS for time columns
 for col, arr in time_matched.items():
-    scatter_name = f"mass_size_time_{col}_scatter.png"
-    loess_name = f"mass_size_time_{col}_loess.png"
+    scatter_name = f"mass_size_time_{col}_scatter.pdf"
+    loess_name = f"mass_size_time_{col}_loess.pdf"
     try:
         scatter_coloured_mass_size(m_logM, m_logR, arr, scatter_name, cbar_label=col)
         print("Saved scatter time plot:", scatter_name)
@@ -1196,20 +1212,20 @@ for ib in range(nbins):
 
     # For each quantity, make a small DoR vs quantity plot restricted to this bin
     # plot_dor_vs_quantity(m_compactness[sel], matched_dor[sel],
-    #                       f"Compactness [{lo:.2f},{hi:.2f})",
-    #                       f"DoR_vs_compactness_bin_{suf}.png", color_arr=m_logZstar_loc[sel], xlim=compact_xlim)
-    # plot_dor_vs_quantity(m_mgfe[sel], matched_dor[sel],
-    #                      f"[Mg/Fe]  [{lo:.2f},{hi:.2f})",
-    #                      f"DoR_vs_MgFe_bin_{suf}.png")
-    # plot_dor_vs_quantity(m_age[sel], matched_dor[sel],
-    #                      f"Lum-weighted age [Gyr]  [{lo:.2f},{hi:.2f})",
-    #                      f"DoR_vs_age_bin_{suf}.png")
-    # plot_dor_vs_quantity(m_log_ssfr[sel], matched_dor[sel],
-    #                      f"lg(sSFR / yr⁻¹)  [{lo:.2f},{hi:.2f})",
-    #                      f"DoR_vs_sSFR_bin_{suf}.png")
+    #                       fr"$\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}}))$" "\n" r"$({lo:.2f} \leq \log_{10}(M_\star/\mathrm{M}_\odot) < {hi:.2f})$",
+    #                       f"DoR_vs_compactness_bin_{suf}.pdf", color_arr=m_mgfe[sel], xlim=compact_xlim)
+    # # plot_dor_vs_quantity(m_mgfe[sel], matched_dor[sel],
+    # #                      f"[Mg/Fe]  [{lo:.2f},{hi:.2f})",
+    # #                      f"DoR_vs_MgFe_bin_{suf}.png")
+    # # plot_dor_vs_quantity(m_age[sel], matched_dor[sel],
+    # #                      f"Lum-weighted age [Gyr]  [{lo:.2f},{hi:.2f})",
+    # #                      f"DoR_vs_age_bin_{suf}.png")
+    # # plot_dor_vs_quantity(m_log_ssfr[sel], matched_dor[sel],
+    # #                      f"lg(sSFR / yr⁻¹)  [{lo:.2f},{hi:.2f})",
+    # #                      f"DoR_vs_sSFR_bin_{suf}.png")
     # plot_dor_vs_quantity(matched_exsitu[sel], matched_dor[sel],
     #                       fr"$f_\mathrm{{ex-situ}}$ [{lo:.2f},{hi:.2f})",
-    #                       f"DoR_vs_exsitu_bin_{suf}.png", color_arr=m_logZstar_loc[sel], xlim=exsitu_xlim)
+    #                       f"DoR_vs_exsitu_bin_{suf}.pdf", color_arr=m_mgfe[sel], xlim=exsitu_xlim)
 
 # Save bin summary table to CSV so you can plot medians only later
 bin_summary_df = pd.DataFrame(bin_summary_rows)
@@ -1224,10 +1240,10 @@ if len(bin_summary_rows) > 0:
     ax.errorbar(bdf["bin_center"], bdf["DoR_median"], yerr=[bdf["DoR_median"] - bdf["DoR_p16"], bdf["DoR_p84"] - bdf["DoR_median"]],
                 fmt='o-', capsize=3, lw=1.5, label='median DoR (16/84)')
     ax.axhline(EXTREME_DOR, color='C1', linestyle='--', lw=1.5, label=f"extreme threshold DoR={EXTREME_DOR}")
-    ax.set_xlabel(r"$\lg(M_\star / M_\odot)$"); ax.set_ylabel("Median DoR"); ax.set_ylim(-0.05, 1.05); ax.grid(True)
+    ax.set_xlabel(r"$\log_{10}(M_\star / M_\odot)$"); ax.set_ylabel("Median DoR"); ax.set_ylim(-0.05, 1.05); ax.grid(True)
     for x,y,cnt in zip(bdf["bin_center"], bdf["DoR_median"], bdf["count"]):
         ax.text(x, y + 0.04, f"{int(cnt)}", ha='center', fontsize=8, alpha=0.7)
-    save_fig(fig, os.path.join("by_mass_bin", "DoR_median_vs_mass_bin_with_extremes.png"))
+    save_fig(fig, os.path.join("by_mass_bin", "DoR_median_vs_mass_bin_with_extremes.pdf"))
     # For convenience, also save medians-only CSV at top level
     top_bin_csv = os.path.join(outdir, "DoR_median_vs_mass_bin_with_extremes.csv")
     bdf.to_csv(top_bin_csv, index=False)
@@ -1252,16 +1268,31 @@ if (bin_summary_df is not None) and (len(bin_summary_df) > 0):
     fig, ax = plt.subplots(figsize=(8,5))
     ax.errorbar(x, y, yerr=[y_lo, y_hi], fmt='o-', capsize=3, lw=1.5, label='median DoR (16/84)')
     # ax.axhline(EXTREME_DOR, color='C1', linestyle='--', lw=1.5, label=f"extreme threshold DoR={EXTREME_DOR}")
-    ax.set_xlabel(r"$\lg(M_\star / M_\odot)$")
-    ax.set_ylabel("Median DoR")
+    ax.set_xlabel(r"$\log_{10}(M_\star / \mathrm{M}_\odot)$", fontsize=13)
+    ax.set_ylabel("Median DoR", fontsize=13)
     ax.set_ylim(-0.05, 1.05)
     ax.grid(True)
     # annotate counts above points
-    for xi, yi, cnt in zip(x, y, counts):
-        ax.text(xi, yi + 0.04, f"{int(cnt)}", ha='center', fontsize=8, alpha=0.7)
 
-        # Right-axis: number of extreme relics (for several thresholds)
+    # Right-axis: number of extreme relics (for several thresholds)
     ax2 = ax.twinx()
+
+    ax_text = fig.add_axes(ax.get_position(), frameon=False)
+    ax_text.set_xlim(ax.get_xlim())
+    ax_text.set_ylim(ax.get_ylim())
+    ax_text.set_xticks([])
+    ax_text.set_yticks([])
+    ax_text.set_zorder(100)
+
+    for xi, yi, cnt in zip(x, y, counts):
+        ax_text.text(xi, yi - 0.04, f"{int(cnt)}", ha='center', zorder=100, fontsize=8, alpha=0.7)
+
+    # Put Number of SAGs on the left and Median DoR on the right
+    ax.yaxis.set_label_position("right")
+    ax.yaxis.tick_right()
+
+    ax2.yaxis.set_label_position("left")
+    ax2.yaxis.tick_left()
     thr_list = [0.6, 0.65, 0.7]          # thresholds you requested
     colors = ["C1", "C2", "C3"]
 
@@ -1270,7 +1301,7 @@ if (bin_summary_df is not None) and (len(bin_summary_df) > 0):
     for thr in thr_list:
         arr = []
         for lo, hi in zip(bdf["bin_lo"], bdf["bin_hi"]):
-            sel_thr = (m_logM >= lo) & (m_logM < hi) & (matched_dor > thr)
+            sel_thr = (m_logM >= lo) & (m_logM < hi) & (matched_dor > thr) # & (m_compactness > COMPACTNESS_CUT)
             arr.append(int(np.sum(sel_thr)))
         counts_by_thr[thr] = np.array(arr, dtype=int)
 
@@ -1299,6 +1330,10 @@ for idx, (thr, col) in enumerate(zip(thr_list, colors)):
     base_offset = 6  # pixels/points above marker
     stagger = 6 * idx  # extra offset per threshold line
     for xi, cnt in zip(x, arr):
+
+        if cnt == 0:
+            continue
+
         # use annotate with offset in points so placement is stable visually
         ax2.annotate(
             f"{int(cnt)}",
@@ -1316,8 +1351,12 @@ for idx, (thr, col) in enumerate(zip(thr_list, colors)):
         )
         
     # Set right-axis limits using the global maximum over all thresholds
-    ax2.set_ylabel('Number of SAGs')
-    ax2.set_ylim(0, max(3, int(maxcnt_all) * 1.15 if maxcnt_all > 0 else 3))
+    ax2.set_ylabel('Number of SAGs', fontsize=13)
+    # ax2.set_ylim(0, max(3, int(maxcnt_all) * 1.15 if maxcnt_all > 0 else 3))
+    count_top = max(3, int(maxcnt_all) * 1.15 if maxcnt_all > 0 else 3)
+    count_bottom = -count_top * (0.05 / 1.05)
+
+    ax2.set_ylim(count_bottom, count_top)
 
     # # Annotate counts for the primary threshold (0.6) above points to keep plot readable
     # # (If you want annotations for all lines, you can loop similarly for each threshold.)
@@ -1346,9 +1385,9 @@ for idx, (thr, col) in enumerate(zip(thr_list, colors)):
     # combine legends
     h1, l1 = ax.get_legend_handles_labels()
     h2, l2 = ax2.get_legend_handles_labels()
-    ax.legend(h1 + h2, l1 + l2, loc='upper right', fontsize=9)
+    ax.legend(h1 + h2, l1 + l2, loc='upper right', fontsize=11)
 
-    out_sum = os.path.join(bin_outdir, "DoR_median_vs_mass_bin_with_extremes.png")
+    out_sum = os.path.join(bin_outdir, "DoR_median_vs_mass_bin_with_extremes.pdf")
     fig.savefig(out_sum, dpi=200, bbox_inches="tight")
     plt.close(fig)
     print("Saved summary median DoR vs mass bin (with extreme counts):", out_sum)
@@ -1381,26 +1420,40 @@ ax.errorbar(
     label='median DoR (16/84)'
 )
 
-ax.set_xlabel(r"$\lg(M_\star / M_\odot)$")
-ax.set_ylabel("Median DoR")
+ax.set_xlabel(r"$\log_{10}(M_\star / \mathrm{M}_\odot)$", fontsize=13)
+ax.set_ylabel("Median DoR", fontsize=13)
 ax.set_ylim(-0.05, 1.05)
 ax.grid(True)
-
-# annotate galaxy counts
-for xi, yi, cnt in zip(x, y, counts):
-    ax.text(
-        xi,
-        yi + 0.04,
-        f"{int(cnt)}",
-        ha='center',
-        fontsize=8,
-        alpha=0.7
-    )
 
 # --------------------------------------------------------------
 # right axis
 # --------------------------------------------------------------
 ax2 = ax.twinx()
+
+ax_text = fig.add_axes(ax.get_position(), frameon=False)
+ax_text.set_xlim(ax.get_xlim())
+ax_text.set_ylim(ax.get_ylim())
+ax_text.set_xticks([])
+ax_text.set_yticks([])
+ax_text.set_zorder(100)
+
+# annotate galaxy counts
+for xi, yi, cnt in zip(x, y, counts):
+    ax_text.text(
+        xi,
+        yi - 0.04,
+        f"{int(cnt)}",
+        ha='center',
+        va='top',
+        fontsize=8,
+        zorder=100,
+        alpha=0.7
+    )
+# Put Number of SAGs on the left and Median DoR on the right
+ax.yaxis.set_label_position("right")
+ax.yaxis.tick_right()
+ax2.yaxis.set_label_position("left")
+ax2.yaxis.tick_left()
 
 compact_counts = []
 diffuse_counts = []
@@ -1427,7 +1480,7 @@ ax2.plot(
     linestyle='--',
     ms=6,
     color='C1',
-    label=fr'compact ($\Sigma_{{1.5}} \geq {COMPACTNESS_CUT}$)'
+    label=f"non-compact\n" fr'($\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}})) \geq {COMPACTNESS_CUT}$)'
 )
 
 ax2.plot(
@@ -1437,7 +1490,7 @@ ax2.plot(
     linestyle=':',
     ms=6,
     color='C4',
-    label=fr'non-compact ($\Sigma_{{1.5}} < {COMPACTNESS_CUT}$)'
+    label=f"non-compact\n" fr'($\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}})) < {COMPACTNESS_CUT}$)'
 )
 
 # --------------------------------------------------------------
@@ -1454,13 +1507,16 @@ for idx, (arr, col) in enumerate([
 
     for xi, cnt in zip(x, arr):
 
+        if cnt == 0:
+            continue
+
         ax2.annotate(
             f"{int(cnt)}",
             xy=(xi, cnt),
-            xytext=(0, base_offset + stagger),
+            xytext=(0, -(base_offset + stagger)),
             textcoords='offset points',
             ha='center',
-            va='bottom',
+            va='top',
             fontsize=7,
             color=col,
             alpha=0.9,
@@ -1480,11 +1536,11 @@ maxcnt_all = max(
     np.nanmax(diffuse_counts)
 )
 
-ax2.set_ylabel('Number of SAGs')
-ax2.set_ylim(
-    0,
-    max(3, int(maxcnt_all) * 1.15 if maxcnt_all > 0 else 3)
-)
+ax2.set_ylabel('Number of SAGs', fontsize=13)
+count_top = max(3, int(maxcnt_all) * 1.15 if maxcnt_all > 0 else 3)
+count_bottom = -count_top * (0.05 / 1.05)
+
+ax2.set_ylim(count_bottom, count_top)
 
 # combined legend
 h1, l1 = ax.get_legend_handles_labels()
@@ -1494,14 +1550,14 @@ ax.legend(
     h1 + h2,
     l1 + l2,
     loc='upper right',
-    fontsize=9
+    fontsize=11
 )
 
 fig.tight_layout()
 
 out_compact = os.path.join(
     bin_outdir,
-    "DoR_median_vs_mass_split_compactness.png"
+    "DoR_median_vs_mass_split_compactness.pdf"
 )
 
 fig.savefig(out_compact, dpi=200, bbox_inches="tight")
@@ -1516,8 +1572,8 @@ print("Saved compact vs non-compact split plot:", out_compact)
 fig, ax = plt.subplots(figsize=(8,5))
 ax.errorbar(x, y, yerr=[y_lo, y_hi], fmt='o-', capsize=3, lw=1.5,
             label='median DoR (16/84)')
-ax.set_xlabel(r"$\lg(M_\star / M_\odot)$")
-ax.set_ylabel("Median DoR")
+ax.set_xlabel(r"$\log_{10}(M_\star / \mathrm{M}_\odot)$", fontsize=13)
+ax.set_ylabel("Median DoR", fontsize=13)
 ax.set_ylim(-0.05, 1.05)
 ax.grid(True)
 
@@ -1767,7 +1823,7 @@ print("Saved central vs satellite split plot.")
 
 # fig, ax = plt.subplots(figsize=(8,5))
 # ax.errorbar(x, y, yerr=[y_lo, y_hi], fmt='o-', capsize=3, lw=1.5, label='median DoR (16/84)')
-# ax.set_xlabel(r"$\lg(M_\star / M_\odot)$")
+# ax.set_xlabel(r"$\log_{10}(M_\star / M_\odot)$")
 # ax.set_ylabel("Median DoR")
 # ax.set_ylim(-0.05, 1.05)
 # ax.grid(True)
@@ -1809,7 +1865,7 @@ print("Saved central vs satellite split plot.")
 
 # fig, ax = plt.subplots(figsize=(8,5))
 # ax.errorbar(x, y, yerr=[y_lo, y_hi], fmt='o-', capsize=3, lw=1.5, label='median DoR (16/84)')
-# ax.set_xlabel(r"$\lg(M_\star / M_\odot)$")
+# ax.set_xlabel(r"$\log_{10}(M_\star / M_\odot)$")
 # ax.set_ylabel("Median DoR")
 # ax.set_ylim(-0.05, 1.05)
 # ax.grid(True)
@@ -1832,7 +1888,7 @@ print("Saved central vs satellite split plot.")
 # ax2.plot(x, counts_low_ex, 's--', color='C5', label='ex-situ ≤ 0.1')
 # ax2.plot(x, counts_high_ex, 'o--', color='C6', label='ex-situ > 0.1')
 
-# ax2.set_ylabel("Number of extreme relics")
+# ax2.set_ylabel("Number of SAGs")
 # ax2.set_ylim(0, max(3, int(max(np.nanmax(counts_low_ex), np.nanmax(counts_high_ex))) * 1.2))
 
 # h1, l1 = ax.get_legend_handles_labels()
@@ -1852,7 +1908,7 @@ print("Saved central vs satellite split plot.")
 # fig, ax = plt.subplots(figsize=(8,5))
 # ax.errorbar(x, y, yerr=[y_lo, y_hi], fmt='o-', capsize=3, lw=1.5,
 #             label='median DoR (16/84)')
-# ax.set_xlabel(r"$\lg(M_\star / M_\odot)$")
+# ax.set_xlabel(r"$\log_{10}(M_\star / M_\odot)$")
 # ax.set_ylabel("Median DoR")
 # ax.set_ylim(-0.05, 1.05)
 # ax.grid(True)
@@ -1933,8 +1989,8 @@ if ("BH_log10_ratio_median" in bdf.columns) or ("BH_ratio_median" in bdf.columns
 
     fig, ax = plt.subplots(figsize=(8,5))
     ax.errorbar(x, med, yerr=[lo, hi], fmt='o-', capsize=3, lw=1.5, zorder=100, label='median (16/84)')
-    ax.set_xlabel(r"$\lg(M_\star / M_\odot)$")
-    ax.set_ylabel(r"$\lg(M_{\mathrm{BH}} / M_\star)$")
+    ax.set_xlabel(r"$\log_{10}(M_\star / \mathrm{M}_\odot)$", fontsize=13)
+    ax.set_ylabel(r"$\log_{10}(M_{\mathrm{BH}} / M_\star)$", fontsize=13)
     ax.grid(True)
 
     # --- Overlay INDIVIDUAL extreme relic points (use in-memory matched arrays) ---
@@ -1956,7 +2012,55 @@ if ("BH_log10_ratio_median" in bdf.columns) or ("BH_ratio_median" in bdf.columns
     sel_rel = sel_ext & (m_compactness > COMPACTNESS_CUT)
     sel_sag = sel_ext & (m_compactness < COMPACTNESS_CUT)
     sel_compnonrel = (matched_dor < EXTREME_DOR) & np.isfinite(m_logM) & (m_compactness > COMPACTNESS_CUT)
-    
+    cen_srg = sel_rel & is_central_matched
+    sat_srg = sel_rel & (~is_central_matched)
+
+    # Masking the galaxies affected by repositioning
+    # raw and corrected BH masses on the matched subset
+    bh_mass_raw_sel = bh_mass_raw[select][mask_pos] * Mu
+    bh_mass_corr_sel = bh_mass.copy()   # already corrected
+
+    bh_mass_uncorr_matched = bh_mass_raw_sel[matched_positions]
+    bh_mass_corr_matched   = bh_mass_corr_sel[matched_positions]
+
+    # galaxies whose BH mass was zero in SOAP but recovered by your lookup
+    bh_was_corrected = (bh_mass_uncorr_matched == 0) & (bh_mass_corr_matched > 0)
+
+    # only the extreme relics you are plotting in this figure
+    bh_was_corrected_ext = bh_was_corrected & (matched_dor > EXTREME_DOR) & np.isfinite(m_bh_ratio)
+
+    # optional split
+    bh_was_corrected_sag = bh_was_corrected_ext & (m_compactness < COMPACTNESS_CUT)
+    bh_was_corrected_srg = bh_was_corrected_ext & (m_compactness >= COMPACTNESS_CUT)
+
+    # masks for the filled points: exclude corrected ones
+    sel_sag_filled = sel_sag & (~bh_was_corrected_ext)
+    sel_rel_filled = sel_rel & (~bh_was_corrected_ext)
+
+    # ----------------------------------------------------------
+    # Fraction of galaxies affected by the BH repositioning fix
+    # ----------------------------------------------------------
+
+    print("\nFraction of galaxies affected by BH correction")
+
+    print(
+        f"All ancient galaxies : "
+        f"{np.sum(bh_was_corrected_ext)}/{np.sum(sel_ext)} "
+        f"({100*np.sum(bh_was_corrected_ext)/np.sum(sel_ext):.1f}%)"
+    )
+
+    print(
+        f"SRGs                : "
+        f"{np.sum(bh_was_corrected_srg)}/{np.sum(sel_rel)} "
+        f"({100*np.sum(bh_was_corrected_srg)/np.sum(sel_rel):.1f}%)"
+    )
+
+    print(
+        f"Non-compact SAGs    : "
+        f"{np.sum(bh_was_corrected_sag)}/{np.sum(sel_sag)} "
+        f"({100*np.sum(bh_was_corrected_sag)/np.sum(sel_sag):.1f}%)"
+    )
+
     # Create id list of ALL SAGs
     ancient_mask = np.isfinite(matched_dor) & (matched_dor > EXTREME_DOR)
     sag_ids = matched_subids[ancient_mask]
@@ -1982,14 +2086,39 @@ if ("BH_log10_ratio_median" in bdf.columns) or ("BH_ratio_median" in bdf.columns
     else:
         # Plot them conspicuously
         ax.scatter(m_logM[sel_compnonrel], m_bh_ratio[sel_compnonrel],
-                color='lightgrey', alpha=0.5, s=10, linewidth=0.7,
+                color='lightgrey', alpha=0.5, s=10, linewidth=0.7, rasterized=True,
                 zorder=10, label='compact non-relics')
-        ax.scatter(m_logM[sel_sag], m_bh_ratio[sel_sag],
-                facecolor='C1', edgecolor='C1', s=15, marker='d', linewidth=0.7,
-                zorder=10, label='SAGs')
-        ax.scatter(m_logM[sel_rel], m_bh_ratio[sel_rel],
-                facecolor='C2', edgecolor='C2', s=30, marker='*', linewidth=0.7,
+        ax.scatter(m_logM[sel_sag_filled], m_bh_ratio[sel_sag_filled],
+                facecolor='C1', edgecolor='C1', s=15, marker='d', linewidth=0.7, rasterized=True,
+                zorder=10, label='non-compact SAGs')
+        ax.scatter(m_logM[sel_rel_filled], m_bh_ratio[sel_rel_filled],
+                facecolor='C2', edgecolor='C2', s=30, marker='*', linewidth=0.7, rasterized=True,
                 zorder=20, label='SRGs')
+        # highlight corrected BH masses with hollow points
+        ax.scatter(
+            m_logM[bh_was_corrected_sag],
+            m_bh_ratio[bh_was_corrected_sag],
+            s=15,
+            facecolors='none',
+            edgecolors='C1',
+            linewidths=1.2,
+            rasterized=True,
+            marker='d',
+            zorder=260,
+            label=r"corrected $M_\mathrm{BH}$ (SAGs)"
+        )
+        ax.scatter(
+            m_logM[bh_was_corrected_srg],
+            m_bh_ratio[bh_was_corrected_srg],
+            s=30,
+            facecolors='none',
+            edgecolors='C2',
+            linewidths=1.2,
+            rasterized=True,
+            marker='*',
+            zorder=260,
+            label=r"corrected $M_\mathrm{BH}$ (SRGs)"
+        )
         # # Plot 3 ranges of extreme relics        
         # ax.scatter(m_logM[sel_ext1], m_bh_ratio[sel_ext1],
         #         facecolor='C1', edgecolor='k', s=120, marker='*', linewidth=0.7,
@@ -2006,11 +2135,41 @@ if ("BH_log10_ratio_median" in bdf.columns) or ("BH_ratio_median" in bdf.columns
         # ensure plotted points are inside axes limits (prevent clipping)
         ax.relim(); ax.autoscale_view(True, True, True)
         # small y-padding so markers don't sit on axis border
-        ymin, ymax = ax.get_ylim(); pad = 0.06 * (ymax - ymin); ax.set_ylim(ymin - pad, ymax + pad)
+        ymin, ymax = ax.get_ylim(); pad = 0.06 * (ymax - (-7.0)); ax.set_ylim(-8.0, -1.0) # ymax + pad)
         print(f"Plotted {int(np.sum(sel_ext))} individual extreme relics (in-memory).")
 
-    ax.legend(loc='best', fontsize=9)
-    outbh = os.path.join(bin_outdir, "BHratio_log10_median_vs_mass_bin.png")
+        # --- SRG centrals / satellites summary points ---
+        for mask, edgecol, facecol, label in [
+            (cen_srg, "red", "green", "SRG centrals (median)"),
+            (sat_srg, "blue", "green", "SRG satellites (median)"),
+        ]:
+            if np.sum(mask) == 0:
+                continue
+
+            x_med = np.nanmedian(m_logM[mask])
+            y_med = np.nanmedian(m_bh_ratio[mask])
+            x_std = np.nanstd(m_logM[mask])
+            y_std = np.nanstd(m_bh_ratio[mask])
+
+            ax.errorbar(
+                x_med,
+                y_med,
+                xerr=x_std,
+                yerr=y_std,
+                fmt="*",
+                markersize=16,
+                markerfacecolor=facecol,
+                markeredgecolor=edgecol,
+                markeredgewidth=2.0,
+                ecolor=edgecol,
+                elinewidth=1.8,
+                capsize=4,
+                zorder=200,
+                label=label,
+            )
+
+    ax.legend(loc='best', fontsize=11)
+    outbh = os.path.join(bin_outdir, "BHratio_log10_median_vs_mass_bin.pdf")
     fig.savefig(outbh, dpi=200, bbox_inches="tight")
     plt.close(fig)
     print("Saved BH ratio summary with extreme markers:", outbh)
@@ -2067,8 +2226,160 @@ else:
 
 #     ax.legend(loc='best', fontsize=9)
 
-print("Ex-situ Median of the non-compact SAGs:", np.median(exsitu_fracs_matched[sel_sag]))
 
+# Visualise ex-situ shift when only accounting for z<2 mergers
+from matplotlib.collections import LineCollection
+
+# old SAG table from the current run
+old_df = sag_df[["HaloCatalogueIndex", "DoR", "exsitu_frac", "logM", "compactness"]].copy()
+old_df = old_df.rename(columns={"exsitu_frac": "exsitu_old"})
+
+# updated ex-situ CSV
+upd_df = pd.read_csv(
+    "SAG_ids_and_properties_updated_fexsitu.csv",
+    low_memory=False
+)
+
+# keep only the columns we need and standardise names
+upd_df = upd_df[["HaloCatalogueIndex", "fexsitu_limited"]].copy()
+upd_df["HaloCatalogueIndex"] = upd_df["HaloCatalogueIndex"].astype(np.int64)
+upd_df = upd_df.rename(columns={"fexsitu_limited": "exsitu_new"})
+
+# match old and new by ID
+move_df = old_df.merge(upd_df, on="HaloCatalogueIndex", how="inner")
+
+print("Matched old/new ex-situ values:", len(move_df))
+
+# counts for all relics in the merged table
+n_sag_ex02 = np.count_nonzero(
+    (move_df["compactness"] < COMPACTNESS_CUT) &
+    (move_df["exsitu_new"] > 0.2)
+)
+
+n_srg_ex02 = np.count_nonzero(
+    (move_df["compactness"] >= COMPACTNESS_CUT) &
+    (move_df["exsitu_new"] > 0.2)
+)
+print("SAGs with exsitu_new > 0.2:", n_sag_ex02)
+print("SRGs with exsitu_new > 0.2:", n_srg_ex02)
+
+# keep only rows with finite values
+# move_df = move_df.copy()
+
+# keep only relics
+move_df = move_df[
+    (move_df["DoR"] > EXTREME_DOR) &
+    (move_df["compactness"] >= COMPACTNESS_CUT)
+].copy()
+
+move_df["delta_exsitu"] = move_df["exsitu_new"] - move_df["exsitu_old"]
+
+# optionally keep only changes that are actually visible
+# (tune 0.01 / 0.02 to taste)
+show = (
+    np.isfinite(move_df["exsitu_old"]) &
+    np.isfinite(move_df["exsitu_new"]) &
+    np.isfinite(move_df["DoR"])
+)
+
+# connector segments: old -> new at fixed DoR
+segments = np.array([
+    [[xo, y], [xn, y]]
+    for xo, xn, y in zip(
+        move_df.loc[show, "exsitu_old"],
+        move_df.loc[show, "exsitu_new"],
+        move_df.loc[show, "DoR"]
+    )
+], dtype=float)
+
+fig, ax = plt.subplots(figsize=(7, 5))
+
+# draw old points first as open circles
+ax.scatter(
+    move_df.loc[show, "exsitu_old"],
+    move_df.loc[show, "DoR"],
+    s=20,
+    facecolors="none",
+    edgecolors="0.45",
+    linewidths=0.8,
+    alpha=0.85,
+    label="old ex-situ",
+    zorder=2
+)
+
+# draw updated points second as filled circles
+ax.scatter(
+    move_df.loc[show, "exsitu_new"],
+    move_df.loc[show, "DoR"],
+    s=22,
+    c=move_df.loc[show, "compactness"],
+    cmap="viridis",
+    edgecolors="k",
+    linewidths=0.25,
+    alpha=0.95,
+    label="updated ex-situ",
+    zorder=4
+)
+
+# draw connectors on top so they are visible
+lc = LineCollection(
+    segments,
+    colors="0.25",
+    linewidths=1.0,
+    alpha=0.85,
+    zorder=3
+)
+ax.add_collection(lc)
+
+# Add individual values of the shift
+# for _, row in move_df.loc[show].iterrows():
+
+#     # old value
+#     ax.text(
+#         row["exsitu_old"],
+#         row["DoR"] + 0.002,
+#         f"{row['exsitu_old']:.2f}",
+#         fontsize=6,
+#         color="0.35",
+#         ha="right"
+#     )
+
+#     # new value
+#     ax.text(
+#         row["exsitu_new"],
+#         row["DoR"] + 0.002,
+#         f"{row['exsitu_new']:.2f}",
+#         fontsize=6,
+#         color="C0",
+#         ha="left"
+#     )
+
+# Add median lines of both ex-situ computations
+med_old = np.nanmedian(move_df["exsitu_old"])
+med_new = np.nanmedian(move_df["exsitu_new"])
+
+ax.axvline(med_old, color="0.45", linestyle=":", lw=1.5,
+           label=fr"median old = {med_old:.3f}")
+ax.axvline(med_new, color="C0", linestyle=":", lw=1.5,
+           label=fr"median new = {med_new:.3f}")
+
+ax.axhline(EXTREME_DOR, color="C1", linestyle="--", lw=1.5,
+           label=f"relic threshold DoR={EXTREME_DOR}")
+
+ax.set_xlabel(r"$f_\mathrm{ex-situ}$")
+ax.set_ylabel("DoR")
+ax.grid(True)
+ax.legend(fontsize=8)
+
+fig.tight_layout()
+fig.savefig(os.path.join(outdir, "DoR_vs_exsitu_old_to_updated.png"),
+            dpi=200, bbox_inches="tight")
+plt.close(fig)
+
+
+print("Compactness Median of the non-compact SAGs:", np.median(m_compactness[sel_sag]))
+print("Ex-situ Median of the non-compact SAGs:", np.median(exsitu_fracs_matched[sel_sag]))
+print("Ex-situ Median of SRGs:", np.median(exsitu_fracs_matched[sel_rel]))
 
 # exact same rows as the corrected sample
 bh_mass_raw_sel = bh_mass_raw[select][mask_pos] * Mu

@@ -418,7 +418,7 @@ plt.figure(figsize=(8,6))
 plt.scatter(log_m, log_r, alpha=0.7, s=10, label=f"Simulated galaxies at z={ztarget}")
 # threshold line (Barro)
 stellar_masses = np.logspace(9, 12, 100)
-logsigma_ref = 9.72
+logsigma_ref = 9.75
 plt.plot(np.log10(stellar_masses), (2/3)*(np.log10(stellar_masses) - logsigma_ref),
          linestyle='--', color='black', label=fr'Compactness threshold ($\lg{{\Sigma_{{1.5}}}} = {logsigma_ref}$)')
 plt.xlabel(r"lg(Stellar Mass / $M_{\odot}$)")
@@ -644,7 +644,7 @@ else:
                            shading='auto', cmap=cmap,
                            vmin=vmin, vmax=vmax)
         cbar = fig.colorbar(im, ax=ax)
-        cbar.set_label("Ex-situ mass fraction")
+        cbar.set_label(r"$f_\mathrm{ex-situ}$")
 
         # faint markers showing evaluated LOESS points
         ax.scatter(xout, yout, s=1, c='k', alpha=0.05, linewidths=0)
@@ -662,15 +662,15 @@ else:
 ax.plot(np.log10(stellar_masses),
         (2/3)*(np.log10(stellar_masses) - logsigma_ref),
         linestyle='--', color='black',
-        label=fr'Compactness threshold ($\lg\Sigma_{{1.5}} = {logsigma_ref}$)')
+        label=fr"compactness threshold $\log_{{10}} \Sigma_{{1.5}} ={logsigma_ref}$")
 
-ax.set_xlabel(r"lg(Stellar Mass / $M_{\odot}$)")
-ax.set_ylabel(r"lg(Half Mass Radius / kpc)")
+ax.set_xlabel(r"$\log_{{10}}(M_\star / M_{\odot}$)")
+ax.set_ylabel(r"$\log_{{10}}(R_{1/2, \star} / \mathrm{kpc})$")
 ax.legend(fontsize=8)
 ax.grid(True)
 
 outpath_exsitu = os.path.join(
-    outdir, f"mass_size_z{ztarget:.1f}_exsitu_loess.png"
+    outdir, f"mass_size_z{ztarget:.1f}_exsitu_loess.pdf"
 )
 fig.savefig(outpath_exsitu, dpi=300, bbox_inches='tight')
 plt.close(fig)
@@ -724,7 +724,7 @@ ax.set_title("Mass–size relation coloured by ex-situ mass fraction (hexbin)")
 ax.legend(fontsize=8)
 ax.grid(True)
 
-outpath_hex_exsitu = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_exsitu_hexbin.png")
+outpath_hex_exsitu = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_exsitu_hexbin.pdf")
 fig.savefig(outpath_hex_exsitu, dpi=300, bbox_inches='tight')
 plt.close(fig)
 print("Saved ex-situ hexbin plot:", outpath_hex_exsitu)
@@ -738,133 +738,133 @@ if finite_mask.sum() > 0:
     plt.ylabel("Number of galaxies")
     plt.title("Sample: ex-situ mass fractions (matched)")
     plt.tight_layout()
-    hist_out = os.path.join(outdir, "ucmg_exsitu_hist.png")
+    hist_out = os.path.join(outdir, "ucmg_exsitu_hist.pdf")
     plt.savefig(hist_out, dpi=150)
     plt.close()
     print("Saved ex-situ histogram:", hist_out)
 else:
     print("No ex-situ fractions available to plot histogram.")
 
-# ----- Mg/Fe coloured mass-size plane using loess_2d above -----
-SHOW_MISSING = True   # set False to hide missing Mg/Fe galaxies
+# # ----- Mg/Fe coloured mass-size plane using loess_2d above -----
+# SHOW_MISSING = True   # set False to hide missing Mg/Fe galaxies
 
-# Align mgfe to plotting order (unchanged)
-mgfe_series = pd.Series(mgfe_abund_all, index=subids_all)
-mgfe_aligned = mgfe_series.reindex(subids_plot).to_numpy(dtype=float)
+# # Align mgfe to plotting order (unchanged)
+# mgfe_series = pd.Series(mgfe_abund_all, index=subids_all)
+# mgfe_aligned = mgfe_series.reindex(subids_plot).to_numpy(dtype=float)
 
-have_mask = np.isfinite(mgfe_aligned)
-missing_mask = ~have_mask
-n_have = int(have_mask.sum())
-n_missing = int(missing_mask.sum())
+# have_mask = np.isfinite(mgfe_aligned)
+# missing_mask = ~have_mask
+# n_have = int(have_mask.sum())
+# n_missing = int(missing_mask.sum())
 
-print(f"DEBUG Mg/Fe: have={n_have}, missing={n_missing}, total_plot={len(subids_plot)}")
+# print(f"DEBUG Mg/Fe: have={n_have}, missing={n_missing}, total_plot={len(subids_plot)}")
 
-fig, ax = plt.subplots(figsize=(8,6))
+# fig, ax = plt.subplots(figsize=(8,6))
 
-if n_have == 0:
-    # nothing to LOESS: show grey points or plain scatter
-    if SHOW_MISSING:
-        ax.scatter(log_m, log_r, s=18, alpha=0.8, color="lightgrey", label="no Mg/Fe")
-    else:
-        ax.scatter(log_m, log_r, s=10, alpha=0.7, label="galaxies")
-else:
-    # Data to use for LOESS
-    xvals = log_m[have_mask]
-    yvals = log_r[have_mask]
-    zvals = mgfe_aligned[have_mask]
+# if n_have == 0:
+#     # nothing to LOESS: show grey points or plain scatter
+#     if SHOW_MISSING:
+#         ax.scatter(log_m, log_r, s=18, alpha=0.8, color="lightgrey", label="no Mg/Fe")
+#     else:
+#         ax.scatter(log_m, log_r, s=10, alpha=0.7, label="galaxies")
+# else:
+#     # Data to use for LOESS
+#     xvals = log_m[have_mask]
+#     yvals = log_r[have_mask]
+#     zvals = mgfe_aligned[have_mask]
 
-    # Grid resolution (tune if needed)
-    nx, ny = 300, 220
-    xg = np.linspace(np.nanmin(log_m), np.nanmax(log_m), nx)
-    yg = np.linspace(np.nanmin(log_r), np.nanmax(log_r), ny)
-    Xg, Yg = np.meshgrid(xg, yg)           # shapes: (ny, nx)
-    pts_grid = np.column_stack((Xg.ravel(), Yg.ravel()))
+#     # Grid resolution (tune if needed)
+#     nx, ny = 300, 220
+#     xg = np.linspace(np.nanmin(log_m), np.nanmax(log_m), nx)
+#     yg = np.linspace(np.nanmin(log_r), np.nanmax(log_r), ny)
+#     Xg, Yg = np.meshgrid(xg, yg)           # shapes: (ny, nx)
+#     pts_grid = np.column_stack((Xg.ravel(), Yg.ravel()))
 
-    # Compute convex hull of the data points -> polygon
-    # If there are <3 points, fall back to simple nearest-distance mask.
-    if xvals.size >= 3:
-        try:
-            hull = ConvexHull(np.column_stack((xvals, yvals)))
-            hull_verts = np.column_stack((xvals, yvals))[hull.vertices]
-            hull_path = Path(hull_verts)
-            inside_mask = hull_path.contains_points(pts_grid)   # boolean length ny*nx
-        except Exception:
-            # convex hull could fail on degenerate data; fallback to nearest-dist mask
-            tree_tmp = cKDTree(np.column_stack((xvals, yvals)))
-            dists_grid, _ = tree_tmp.query(pts_grid, k=1)
-            # choose threshold e.g. max neighbour distance of the data (k-th neighbor for frac)
-            # use median nearest-neighbor distance of data
-            ddata, _ = tree_tmp.query(np.column_stack((xvals, yvals)), k=2)
-            med_nn = np.median(ddata[:, 1])
-            inside_mask = (dists_grid <= (2.0 * med_nn))
-    else:
-        # For 1-2 points use distance-based mask
-        tree_tmp = cKDTree(np.column_stack((xvals, yvals)))
-        dists_grid, _ = tree_tmp.query(pts_grid, k=1)
-        ddata, _ = tree_tmp.query(np.column_stack((xvals, yvals)), k=2 if xvals.size>1 else 1)
-        med_nn = np.median(ddata[:, -1]) if ddata.ndim>1 else np.median(ddata)
-        inside_mask = (dists_grid <= (2.0 * med_nn if med_nn>0 else 1e-6))
+#     # Compute convex hull of the data points -> polygon
+#     # If there are <3 points, fall back to simple nearest-distance mask.
+#     if xvals.size >= 3:
+#         try:
+#             hull = ConvexHull(np.column_stack((xvals, yvals)))
+#             hull_verts = np.column_stack((xvals, yvals))[hull.vertices]
+#             hull_path = Path(hull_verts)
+#             inside_mask = hull_path.contains_points(pts_grid)   # boolean length ny*nx
+#         except Exception:
+#             # convex hull could fail on degenerate data; fallback to nearest-dist mask
+#             tree_tmp = cKDTree(np.column_stack((xvals, yvals)))
+#             dists_grid, _ = tree_tmp.query(pts_grid, k=1)
+#             # choose threshold e.g. max neighbour distance of the data (k-th neighbor for frac)
+#             # use median nearest-neighbor distance of data
+#             ddata, _ = tree_tmp.query(np.column_stack((xvals, yvals)), k=2)
+#             med_nn = np.median(ddata[:, 1])
+#             inside_mask = (dists_grid <= (2.0 * med_nn))
+#     else:
+#         # For 1-2 points use distance-based mask
+#         tree_tmp = cKDTree(np.column_stack((xvals, yvals)))
+#         dists_grid, _ = tree_tmp.query(pts_grid, k=1)
+#         ddata, _ = tree_tmp.query(np.column_stack((xvals, yvals)), k=2 if xvals.size>1 else 1)
+#         med_nn = np.median(ddata[:, -1]) if ddata.ndim>1 else np.median(ddata)
+#         inside_mask = (dists_grid <= (2.0 * med_nn if med_nn>0 else 1e-6))
 
-    # Only predict at grid points that lie inside convex hull (avoid extrapolation)
-    idx_inside = np.nonzero(inside_mask)[0]
-    if idx_inside.size > 0:
-        xout = pts_grid[idx_inside, 0]
-        yout = pts_grid[idx_inside, 1]
+#     # Only predict at grid points that lie inside convex hull (avoid extrapolation)
+#     idx_inside = np.nonzero(inside_mask)[0]
+#     if idx_inside.size > 0:
+#         xout = pts_grid[idx_inside, 0]
+#         yout = pts_grid[idx_inside, 1]
 
-        # LOESS parameters - tweak frac if smoothing too strong/weak
-        frac_loess = 0.01
-        # call loess_2d: must accept xout,yout and return (zout, wout)
-        Zflat_inside, Wflat = loess_2d(xvals, yvals, zvals, frac=frac_loess, degree=1,
-                                       xout=xout, yout=yout)
+#         # LOESS parameters - tweak frac if smoothing too strong/weak
+#         frac_loess = 0.01
+#         # call loess_2d: must accept xout,yout and return (zout, wout)
+#         Zflat_inside, Wflat = loess_2d(xvals, yvals, zvals, frac=frac_loess, degree=1,
+#                                        xout=xout, yout=yout)
 
-        # Build full grid and fill predicted values only at inside points; outside remain NaN
-        Zflat = np.full(pts_grid.shape[0], np.nan, dtype=float)
-        Zflat[idx_inside] = Zflat_inside
-        Zgrid = Zflat.reshape((ny, nx))
-        Zmask = np.ma.masked_invalid(Zgrid)   # mask NaNs -> pcolormesh will leave them blank
+#         # Build full grid and fill predicted values only at inside points; outside remain NaN
+#         Zflat = np.full(pts_grid.shape[0], np.nan, dtype=float)
+#         Zflat[idx_inside] = Zflat_inside
+#         Zgrid = Zflat.reshape((ny, nx))
+#         Zmask = np.ma.masked_invalid(Zgrid)   # mask NaNs -> pcolormesh will leave them blank
 
-        # color limits from data distribution
-        try:
-            vmin = float(np.nanpercentile(zvals, 5))
-            vmax = float(np.nanpercentile(zvals, 95))
-        except Exception:
-            vmin, vmax = float(np.nanmin(zvals)), float(np.nanmax(zvals))
-        if not np.isfinite(vmin) or not np.isfinite(vmax) or vmin == vmax:
-            med = float(np.nanmedian(zvals))
-            span = max(0.3, 0.5 * max(1e-6, abs(med)))
-            vmin = med - span
-            vmax = med + span
+#         # color limits from data distribution
+#         try:
+#             vmin = float(np.nanpercentile(zvals, 5))
+#             vmax = float(np.nanpercentile(zvals, 95))
+#         except Exception:
+#             vmin, vmax = float(np.nanmin(zvals)), float(np.nanmax(zvals))
+#         if not np.isfinite(vmin) or not np.isfinite(vmax) or vmin == vmax:
+#             med = float(np.nanmedian(zvals))
+#             span = max(0.3, 0.5 * max(1e-6, abs(med)))
+#             vmin = med - span
+#             vmax = med + span
 
-        cmap = plt.get_cmap("viridis")
-        norm = Normalize(vmin=vmin, vmax=vmax)
+#         cmap = plt.get_cmap("viridis")
+#         norm = Normalize(vmin=vmin, vmax=vmax)
 
-        # Plot LOESS surface only inside hull (white elsewhere)
-        im = ax.pcolormesh(Xg, Yg, Zmask, shading='auto', cmap=cmap, norm=norm)
-        cbar = fig.colorbar(im, ax=ax)
-        cbar.set_label("[Mg/Fe] (dex)")
+#         # Plot LOESS surface only inside hull (white elsewhere)
+#         im = ax.pcolormesh(Xg, Yg, Zmask, shading='auto', cmap=cmap, norm=norm)
+#         cbar = fig.colorbar(im, ax=ax)
+#         cbar.set_label("[Mg/Fe] (dex)")
 
-    else:
-        # nothing inside hull (very unlikely) -> fallback to scatter
-        ax.scatter(xvals, yvals, c=zvals, cmap='viridis', s=18, edgecolors='none')
+#     else:
+#         # nothing inside hull (very unlikely) -> fallback to scatter
+#         ax.scatter(xvals, yvals, c=zvals, cmap='viridis', s=18, edgecolors='none')
 
-    # overlay data points for reference (use same colormap / limits)
-    # sc = ax.scatter(xvals, yvals, c=zvals, cmap='viridis', norm=norm, s=12, edgecolors='none', label="[Mg/Fe] present")
+#     # overlay data points for reference (use same colormap / limits)
+#     # sc = ax.scatter(xvals, yvals, c=zvals, cmap='viridis', norm=norm, s=12, edgecolors='none', label="[Mg/Fe] present")
 
-    # overlay missing points as grey markers on top if requested
-    if SHOW_MISSING and n_missing > 0:
-        ax.scatter(log_m[missing_mask], log_r[missing_mask], color="lightgrey", s=8, alpha=0.6, label="no Mg/Fe")
+#     # overlay missing points as grey markers on top if requested
+#     if SHOW_MISSING and n_missing > 0:
+#         ax.scatter(log_m[missing_mask], log_r[missing_mask], color="lightgrey", s=8, alpha=0.6, label="no Mg/Fe")
 
-# Draw compactness threshold last (foreground)
-ax.plot(np.log10(stellar_masses), (2/3)*(np.log10(stellar_masses) - logsigma_ref),
-        linestyle='--', color='black', label=fr'Compactness threshold ($\lg\Sigma_{{1.5}} = {logsigma_ref}$)')
+# # Draw compactness threshold last (foreground)
+# ax.plot(np.log10(stellar_masses), (2/3)*(np.log10(stellar_masses) - logsigma_ref),
+#         linestyle='--', color='black', label=fr'Compactness threshold ($\lg\Sigma_{{1.5}} = {logsigma_ref}$)')
 
-ax.set_xlabel(r"lg(Stellar Mass / $M_{\odot}$)")
-ax.set_ylabel(r"lg(Half Mass Radius / kpc)")
-ax.set_title("Mass–size plane coloured by [Mg/Fe] (LOESS)")
-ax.legend(fontsize=8)
-ax.grid(True)
+# ax.set_xlabel(r"lg(Stellar Mass / $M_{\odot}$)")
+# ax.set_ylabel(r"lg(Half Mass Radius / kpc)")
+# ax.set_title("Mass–size plane coloured by [Mg/Fe] (LOESS)")
+# ax.legend(fontsize=8)
+# ax.grid(True)
 
-outpath_MgFe = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_MgFe.png")
-fig.savefig(outpath_MgFe, dpi=300, bbox_inches='tight')
-plt.close(fig)
-print("Saved Mg/Fe-coloured mass-size plot (LOESS inside hull):", outpath_MgFe)
+# outpath_MgFe = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_MgFe.pdf")
+# fig.savefig(outpath_MgFe, dpi=300, bbox_inches='tight')
+# plt.close(fig)
+# print("Saved Mg/Fe-coloured mass-size plot (LOESS inside hull):", outpath_MgFe)

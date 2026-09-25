@@ -30,10 +30,10 @@ RUN_TRACE = False    # set True to run the trace of zero-BH extreme relics acros
 
 CORRECTED_DOR_CSV = "sfh_times_all_with_DoR_variants_corrected.csv.gz"
 OUTDIR = "plots"
-OUTNAME = "mass_size_extremes_compactness9p72.png"
+OUTNAME = "mass_size_extremes_compactness9p75.pdf"
 OUT_CSV_TRACE = os.path.join(OUTDIR, "extreme_relics_zeroBH_central_status_by_snap.csv")
 
-COMPACTNESS_CUT = 9.72
+COMPACTNESS_CUT = 9.75
 EXTREME_DOR = 0.6
 
 # chunk size for scanning big HDF5 datasets (tune lower if you still get killed)
@@ -130,6 +130,18 @@ with np.errstate(divide="ignore", invalid="ignore"):
                         bh_mass / m,
                         np.nan)
     log_bh_ratio = np.where(np.isfinite(bh_ratio) & (bh_ratio > 0), np.log10(bh_ratio), np.nan)
+
+
+# Ex-situ only z<2 for SAGs
+df = pd.read_csv("SAG_ids_and_properties_updated_fexsitu.csv")
+
+# make sure the ID column has the same type as halo_idx
+df["HaloCatalogueIndex"] = df["HaloCatalogueIndex"].astype(np.int64)
+
+lookup = df.set_index("HaloCatalogueIndex")["fexsitu_limited"]
+
+# align exsitu_frac to the galaxies shown in the plot
+fexsitu_limited = lookup.reindex(halo_idx).to_numpy()
 
 # ---------------- Load corrected DoR CSV and map to SOAP-selected rows ----------------
 dor_lookup = {}
@@ -247,13 +259,13 @@ if RUN_PLOT:
     cmap = 'viridis' #cmr.iceburn
 
     # background: all selected galaxies (light grey)
-    ax.scatter(logM, logR, s=8, color="lightgrey", alpha=0.6, label="simulated galaxies at z=0")
+    ax.scatter(logM, logR, s=8, color="lightgrey", alpha=0.6, rasterized=True, label="simulated galaxies at z=0")
 
     # compactness reference line: logR = (logM - COMPACTNESS_CUT) / 1.5
     xm = np.linspace(np.nanmin(logM) - 0.2, np.nanmax(logM) + 0.2, 400)
     compact_line = (xm - COMPACTNESS_CUT) / 1.5
     ax.plot(xm, compact_line, linestyle="--", color="black", lw=2,
-            label=fr"compactness: $\Sigma_{{1.5}} = {COMPACTNESS_CUT}$")
+            label=fr"compactness threshold $\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}})) = {COMPACTNESS_CUT}$")
 
     # # highlight extremes: big orange stars
     # if np.any(extreme_mask_cen):
@@ -275,8 +287,8 @@ if RUN_PLOT:
     # highlight them by ex-situ mass
     if np.any(sag_mask):
         sc = ax.scatter(logM[sag_mask], logR[sag_mask],
-                   s=15, marker='d', c=exsitu_fracs[sag_mask], cmap=cmap,
-                   zorder=110, label=f"simulated ancients (DoR > {EXTREME_DOR})")
+                   s=15, marker='s', c=exsitu_fracs[sag_mask], cmap=cmap, vmin=0.0, vmax=0.8, rasterized=True,
+                   zorder=110, label=fr"non-compact SAGs (DoR > {EXTREME_DOR}, $\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}})) < {COMPACTNESS_CUT}$)")
         cbar = plt.colorbar(sc)
         cbar.set_label(r"$f_\mathrm{ex-situ}$")
         print(f"Plotted {int(np.sum(extreme_mask))} extreme central relics (DoR > {EXTREME_DOR}).")
@@ -286,14 +298,14 @@ if RUN_PLOT:
     # highlight relics
     if np.any(relic_mask):
         sc = ax.scatter(logM[relic_mask], logR[relic_mask],
-                   s=30, marker='*', c=exsitu_fracs[relic_mask], cmap=cmap,
-                   zorder=110, label=fr"simulated relics (DoR > {EXTREME_DOR}, $\Sigma_{{1.5}} = {COMPACTNESS_CUT}$)")
+                   s=30, marker='*', c=exsitu_fracs[relic_mask], cmap=cmap, vmin=0.0, vmax=0.8, rasterized=True,
+                   zorder=110, label=fr"SRGs (DoR > {EXTREME_DOR}, $\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}})) > {COMPACTNESS_CUT}$)")
         print(f"Plotted {int(np.sum(extreme_mask))} extreme central relics (DoR > {EXTREME_DOR}).")
     else:
         print(f"No relics found with DoR > {EXTREME_DOR}.")
 
-    ax.set_xlabel(r"$\lg(M_\star / M_\odot)$")
-    ax.set_ylabel(r"$\lg(R_{1/2} / \mathrm{kpc})$")
+    ax.set_xlabel(r"$\log_{{10}}(M_\star / \mathrm{M}_\odot)$", fontsize=13)
+    ax.set_ylabel(r"$\log_{{10}}(R_{1/2, \star} / \mathrm{kpc})$", fontsize=13)
     ax.grid(True)
     ax.legend(fontsize=9, loc='lower right')
 

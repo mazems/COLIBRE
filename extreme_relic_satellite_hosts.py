@@ -35,7 +35,7 @@ os.makedirs(outdir, exist_ok=True)
 
 
 EXTREME_DOR = 0.6
-COMPACTNESS_CUT = 9.72
+COMPACTNESS_CUT = 9.75
 MIN_STELLAR_MASS = 1e9
 
 # Candidate column names in the CSV
@@ -311,13 +311,13 @@ if rel_cen_mask.sum() > 0:
         label=f"Relic centrals (N={rel_cen_mask.sum()})",
     )
 
-plt.xlabel(r"$\lg(M_{\mathrm{host}} / M_\odot)$")
-plt.ylabel("N")
+plt.xlabel(r"$\log_{10}(M_{\mathrm{200}} / \mathrm{M}_\odot)$", fontsize=13)
+plt.ylabel("N", fontsize=13)
 plt.grid(True, alpha=0.35)
-plt.legend(fontsize=9)
+plt.legend(fontsize=11)
 plt.tight_layout()
 
-p_overlay = os.path.join(outdir, "hist_host_mass_ancient_vs_relics_overlay.png")
+p_overlay = os.path.join(outdir, "hist_host_mass_ancient_vs_relics_overlay.pdf")
 plt.savefig(p_overlay, dpi=200)
 plt.close()
 
@@ -632,9 +632,10 @@ for hid in top_hosts:
         marker='*',
         facecolor=star_color,
         edgecolor='k',
+        rasterized=True,
         linewidth=0.8,
         zorder=5,
-        label="SRG" if hid == top_hosts[0] else "_nolegend_"
+        label="SRGs" if hid == top_hosts[0] else "_nolegend_"
     )
 
 # --- add 50/68/95% contours for the blue points ---
@@ -674,6 +675,7 @@ if blue_x.size > 20:
         X, Y, Z,
         levels=sorted([lev95, lev68, lev50]),
         colors=["0.5", "0.3", "0.1"],
+        zorder=7,
         linewidths=1.5
     )
 
@@ -684,6 +686,7 @@ if blue_x.size > 20:
         lev68: "68%",
         lev50: "50%"
     },
+    zorder=7,
     fontsize=12
     )
 
@@ -706,7 +709,7 @@ ax.legend(fontsize=16)
 
 plt.tight_layout()
 
-outname = os.path.join(outdir, "phase_space_relic_clusters.png")
+outname = os.path.join(outdir, "phase_space_relic_clusters.pdf")
 plt.savefig(outname, dpi=250)
 plt.close()
 

@@ -1,0 +1,25 @@
+Task 1: rendering galaxies 10 to 19
+Using PARTRIDGE at: /home/mzemsch/COLIBRE-analysis/PARTRIDGE
+Found 267 relic IDs in z0_relics_trackids.csv using column 'track_id'
+Rendering IDs in range [10, 20) -> 10 galaxies
+[1/10] Halo 71883 already rendered, skipping.
+[2/10] Halo 72033 already rendered, skipping.
+[3/10] Rendering halo 74170
+Calculating stellar luminosities from FSPS tables.
+Luminosity generation for all bands done. Time taken: 5.305 s (read-in time: 4.590 s).
+Loaded in and pre-processed the data. Total pre-processing time taken: 90.285 s.
+Generated star smoothing lengths. Time taken: 3.741 s.
+Rendered the stars onto the grid. Time taken: 256.516 s.
+Rendered the dust onto the grid. Time taken: 137.734 s.
+Computed the projected luminosity maps. Total time taken: 401.307 s.
+Created the RGB image.
+Created the RGB image.
+Done! Total time taken: 495.407 s.
+[4/10] Halo 74285 already rendered, skipping.
+[5/10] Halo 100031 already rendered, skipping.
+[6/10] Halo 798108 already rendered, skipping.
+[7/10] Halo 1977002 already rendered, skipping.
+[8/10] Halo 3028815 already rendered, skipping.
+[9/10] Halo 97114 already rendered, skipping.
+[10/10] Halo 9659 already rendered, skipping.
+Done.

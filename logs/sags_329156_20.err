@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/home/mzemsch/COLIBRE-analysis/images_SRGs.py", line 212, in <module>
+    main()
+  File "/home/mzemsch/COLIBRE-analysis/images_SRGs.py", line 129, in main
+    raise IndexError(f"--start {args.start} is out of range for {len(ids)} IDs")
+IndexError: --start 300 is out of range for 223 IDs

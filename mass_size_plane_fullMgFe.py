@@ -412,7 +412,7 @@ if(ngals > 0):
 stellar_masses = np.logspace(9, 12, 100)
 a = 2/3
 logsigma = 8.0 
-logsigma_ref = 9.72 #10.0 cut by eye
+logsigma_ref = 9.75 #10.0 cut by eye
 effective_radii = (stellar_masses/(10**(logsigma)))**a
 
 #Mg/Fe computation
@@ -488,7 +488,7 @@ if ngals > 0:
     # save plot
     outdir = os.path.join(os.getcwd(), "plots")
     os.makedirs(outdir, exist_ok=True)
-    outpath = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_fullMgFe.png")
+    outpath = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_fullMgFe.pdf")
     plt.savefig(outpath, dpi=300, bbox_inches='tight')
     print("Saved plot to:", outpath)
     plt.close()
@@ -510,7 +510,7 @@ row_idx = np.flatnonzero(mask_positive_full)
 sigma_full = np.full(m30.shape, np.nan, dtype=np.float32)
 
 sigma_path = "/mnt/su3-pro/colibre/L0200N3008/THERMAL_AGN/SOAP-HBT/extra/halo_properties_0127.hdf5"
-sigma_ds = "/ExclusiveSphere/HalfMassRadiusStars/StellarCylindricalVelocityDispersionLuminosityWeighted" #"/ExclusiveSphere/HalfMassRadiusStars/StellarCylindricalVelocityDispersionVerticalLuminosityWeighted"
+sigma_ds = "/ExclusiveSphere/HalfMassRadiusStars/StellarCylindricalVelocityDispersionVerticalLuminosityWeighted" #"/ExclusiveSphere/HalfMassRadiusStars/StellarCylindricalVelocityDispersionVerticalLuminosityWeighted"
 sigma2_ds = "/ExclusiveSphere/50kpc/StellarCylindricalVelocityDispersionDiscPlane"
 
 if os.path.exists(sigma_path):
@@ -556,117 +556,117 @@ sigma_vals = sigma_full[mask_positive_full]
 log_sigma_vals = log_sigma_full[mask_positive_full]
 
 
-# # --- LOESS-coloured Mg/Fe mass-size plot (self-consistent replacement) ---
+# --- LOESS-coloured Mg/Fe mass-size plot (self-consistent replacement) ---
 
-# SHOW_MISSING = True   # keep same behaviour as earlier
+SHOW_MISSING = True   # keep same behaviour as earlier
 
-# # mgfe_plot is aligned with log_m/log_r (mgfe_plot = mgfe[mask])
-# mgfe_aligned = mgfe_plot.copy()
+# mgfe_plot is aligned with log_m/log_r (mgfe_plot = mgfe[mask])
+mgfe_aligned = mgfe_plot.copy()
 
-# have_mask = np.isfinite(mgfe_aligned)
-# missing_mask = ~have_mask
-# n_have = int(have_mask.sum())
-# n_missing = int(missing_mask.sum())
-# total_plot = int(len(mgfe_aligned))
+have_mask = np.isfinite(mgfe_aligned)
+missing_mask = ~have_mask
+n_have = int(have_mask.sum())
+n_missing = int(missing_mask.sum())
+total_plot = int(len(mgfe_aligned))
 
-# print(f"DEBUG Mg/Fe (LOESS block): have={n_have}, missing={n_missing}, total_plot={total_plot}")
+print(f"DEBUG Mg/Fe (LOESS block): have={n_have}, missing={n_missing}, total_plot={total_plot}")
 
-# fig, ax = plt.subplots(figsize=(8,6))
+fig, ax = plt.subplots(figsize=(8,6))
 
-# if n_have == 0:
-#     if SHOW_MISSING:
-#         ax.scatter(log_m, log_r, s=10, alpha=0.7, color="lightgrey", label="no Mg/Fe")
-#     else:
-#         ax.scatter(log_m, log_r, s=10, alpha=0.7, label="galaxies")
-# else:
-#     # points used for LOESS
-#     xvals = log_m[have_mask]
-#     yvals = log_r[have_mask]
-#     zvals = mgfe_aligned[have_mask]
+if n_have == 0:
+    if SHOW_MISSING:
+        ax.scatter(log_m, log_r, s=10, alpha=0.7, color="lightgrey", label="no Mg/Fe")
+    else:
+        ax.scatter(log_m, log_r, s=10, alpha=0.7, label="galaxies")
+else:
+    # points used for LOESS
+    xvals = log_m[have_mask]
+    yvals = log_r[have_mask]
+    zvals = mgfe_aligned[have_mask]
 
-#     # grid tightly around the data used for LOESS (avoid extrapolating to full plotting bbox)
-#     pad_x = 0.05 * (np.nanmax(xvals) - np.nanmin(xvals) + 1e-6)   # small padding
-#     pad_y = 0.05 * (np.nanmax(yvals) - np.nanmin(yvals) + 1e-6)
-#     nx, ny = 300, 220
-#     xg = np.linspace(np.nanmin(xvals) - pad_x, np.nanmax(xvals) + pad_x, nx)
-#     yg = np.linspace(np.nanmin(yvals) - pad_y, np.nanmax(yvals) + pad_y, ny)
-#     Xg, Yg = np.meshgrid(xg, yg)
-#     pts_grid = np.column_stack((Xg.ravel(), Yg.ravel()))
+    # grid tightly around the data used for LOESS (avoid extrapolating to full plotting bbox)
+    pad_x = 0.05 * (np.nanmax(xvals) - np.nanmin(xvals) + 1e-6)   # small padding
+    pad_y = 0.05 * (np.nanmax(yvals) - np.nanmin(yvals) + 1e-6)
+    nx, ny = 300, 220
+    xg = np.linspace(np.nanmin(xvals) - pad_x, np.nanmax(xvals) + pad_x, nx)
+    yg = np.linspace(np.nanmin(yvals) - pad_y, np.nanmax(yvals) + pad_y, ny)
+    Xg, Yg = np.meshgrid(xg, yg)
+    pts_grid = np.column_stack((Xg.ravel(), Yg.ravel()))
 
-#     # Build KDTree on the *same* LOESS input points and compute distance mask
-#     tree_data = KDTree(np.column_stack((xvals, yvals)))
-#     d_grid, _ = tree_data.query(pts_grid, k=1)
-#     # typical spacing: use 95th percentile of 2nd-neighbour distances of the data
-#     d_data, _ = tree_data.query(np.column_stack((xvals, yvals)), k=2)
-#     if d_data.ndim == 2 and d_data.shape[1] >= 2:
-#         typical_spacing = float(np.nanpercentile(d_data[:, 1], 95))
-#     else:
-#         typical_spacing = float(np.nanmedian(d_grid))
-#     # threshold: multiplier controls how permissive mask is; adjust if necessary (1.0 - 2.0)
-#     d_thresh = max(typical_spacing * 1.3, 1e-6)
-#     inside_mask = (d_grid <= d_thresh)
+    # Build KDTree on the *same* LOESS input points and compute distance mask
+    tree_data = KDTree(np.column_stack((xvals, yvals)))
+    d_grid, _ = tree_data.query(pts_grid, k=1)
+    # typical spacing: use 95th percentile of 2nd-neighbour distances of the data
+    d_data, _ = tree_data.query(np.column_stack((xvals, yvals)), k=2)
+    if d_data.ndim == 2 and d_data.shape[1] >= 2:
+        typical_spacing = float(np.nanpercentile(d_data[:, 1], 95))
+    else:
+        typical_spacing = float(np.nanmedian(d_grid))
+    # threshold: multiplier controls how permissive mask is; adjust if necessary (1.0 - 2.0)
+    d_thresh = max(typical_spacing * 1.3, 1e-6)
+    inside_mask = (d_grid <= d_thresh)
 
-#     idx_inside = np.nonzero(inside_mask)[0]
+    idx_inside = np.nonzero(inside_mask)[0]
 
-#     if idx_inside.size > 0:
-#         # predict only at grid cells that are within d_thresh of a real data point
-#         xout = pts_grid[idx_inside, 0]
-#         yout = pts_grid[idx_inside, 1]
+    if idx_inside.size > 0:
+        # predict only at grid cells that are within d_thresh of a real data point
+        xout = pts_grid[idx_inside, 0]
+        yout = pts_grid[idx_inside, 1]
 
-#         # LOESS parameters (tweak frac if smoothing too strong)
-#         frac_loess = 0.01
-#         degree = 1
+        # LOESS parameters (tweak frac if smoothing too strong)
+        frac_loess = 0.01
+        degree = 1
 
-#         Zflat_inside, Wflat = loess_2d(xvals, yvals, zvals, frac=frac_loess, degree=degree,
-#                                        xout=xout, yout=yout)
+        Zflat_inside, Wflat = loess_2d(xvals, yvals, zvals, frac=frac_loess, degree=degree,
+                                       xout=xout, yout=yout)
 
-#         # place predictions back into full grid
-#         Zflat = np.full(pts_grid.shape[0], np.nan, dtype=float)
-#         Zflat[idx_inside] = Zflat_inside
-#         Zgrid = Zflat.reshape((ny, nx))
-#         Zmask = np.ma.masked_invalid(Zgrid)
+        # place predictions back into full grid
+        Zflat = np.full(pts_grid.shape[0], np.nan, dtype=float)
+        Zflat[idx_inside] = Zflat_inside
+        Zgrid = Zflat.reshape((ny, nx))
+        Zmask = np.ma.masked_invalid(Zgrid)
 
-#         # color limits from zvals (robust)
-#         try:
-#             vmin = float(np.nanpercentile(zvals, 5))
-#             vmax = float(np.nanpercentile(zvals, 95))
-#         except Exception:
-#             vmin, vmax = float(np.nanmin(zvals)), float(np.nanmax(zvals))
-#         if not np.isfinite(vmin) or not np.isfinite(vmax) or vmin == vmax:
-#             med = float(np.nanmedian(zvals))
-#             span = max(0.2, 0.5 * max(1e-6, abs(med)))
-#             vmin = med - span
-#             vmax = med + span
+        # color limits from zvals (robust)
+        try:
+            vmin = float(np.nanpercentile(zvals, 5))
+            vmax = float(np.nanpercentile(zvals, 95))
+        except Exception:
+            vmin, vmax = float(np.nanmin(zvals)), float(np.nanmax(zvals))
+        if not np.isfinite(vmin) or not np.isfinite(vmax) or vmin == vmax:
+            med = float(np.nanmedian(zvals))
+            span = max(0.2, 0.5 * max(1e-6, abs(med)))
+            vmin = med - span
+            vmax = med + span
 
-#         cmap = plt.get_cmap("viridis")
-#         im = ax.pcolormesh(Xg, Yg, Zmask, shading='auto', cmap=cmap, vmin=vmin, vmax=vmax)
-#         cbar = fig.colorbar(im, ax=ax)
-#         cbar.set_label("[Mg/Fe]")
+        cmap = plt.get_cmap("viridis")
+        im = ax.pcolormesh(Xg, Yg, Zmask, shading='auto', cmap=cmap, vmin=vmin, vmax=vmax)
+        cbar = fig.colorbar(im, ax=ax)
+        cbar.set_label("[Mg/Fe]")
 
-#         # faint markers showing evaluated LOESS points (optional)
-#         ax.scatter(xout, yout, s=1, c='k', alpha=0.05, linewidths=0)
-#     else:
-#         # no inside grid points (very unlikely) -> fallback scatter
-#         ax.scatter(xvals, yvals, c=zvals, cmap='viridis', s=12, edgecolors='none')
+        # faint markers showing evaluated LOESS points (optional)
+        ax.scatter(xout, yout, s=1, c='k', alpha=0.05, linewidths=0)
+    else:
+        # no inside grid points (very unlikely) -> fallback scatter
+        ax.scatter(xvals, yvals, c=zvals, cmap='viridis', s=12, edgecolors='none')
 
-#     # optionally overlay missing points in grey
-#     if SHOW_MISSING and n_missing > 0:
-#         ax.scatter(log_m[missing_mask], log_r[missing_mask], color="lightgrey", s=8, alpha=0.6, label="no Mg/Fe")
+    # optionally overlay missing points in grey
+    if SHOW_MISSING and n_missing > 0:
+        ax.scatter(log_m[missing_mask], log_r[missing_mask], color="lightgrey", s=8, alpha=0.6, label="no Mg/Fe")
 
-# # draw compactness threshold (foreground)
-# ax.plot(np.log10(stellar_masses), (2/3)*(np.log10(stellar_masses) - logsigma_ref),
-#         linestyle='--', color='black', label=fr'Compactness threshold ($\lg\Sigma_{{1.5}} = {logsigma_ref}$)')
+# draw compactness threshold (foreground)
+ax.plot(np.log10(stellar_masses), (2/3)*(np.log10(stellar_masses) - logsigma_ref),
+        linestyle='--', color='black', label=fr"compactness threshold $\log_{{10}} \Sigma_{{1.5}} = {logsigma_ref}$)")
 
-# ax.set_xlabel(r"lg(Stellar Mass / $M_{\odot}$)")
-# ax.set_ylabel(r"lg(Half Mass Radius / kpc)")
-# # ax.set_title("Mass–size plane coloured by [Mg/Fe] (LOESS)")
-# ax.legend(fontsize=8)
-# ax.grid(True)
+ax.set_xlabel(r"$\log_{{10}}(M_\star / M_{\odot}$)")
+ax.set_ylabel(r"$\log_{{10}}(R_{1/2, \star} / \mathrm{kpc})$")
+# ax.set_title("Mass–size plane coloured by [Mg/Fe] (LOESS)")
+ax.legend(fontsize=8)
+ax.grid(True)
 
-# outpath_MgFe = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_fullMgFe_loess.png")
-# fig.savefig(outpath_MgFe, dpi=300, bbox_inches='tight')
-# plt.close(fig)
-# print("Saved Mg/Fe-coloured mass-size plot (LOESS inside hull):", outpath_MgFe)
+outpath_MgFe = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_fullMgFe_loess.pdf")
+fig.savefig(outpath_MgFe, dpi=300, bbox_inches='tight')
+plt.close(fig)
+print("Saved Mg/Fe-coloured mass-size plot (LOESS inside hull):", outpath_MgFe)
 
 # # ----------------- Hexbin version (replace or add after LOESS block) -----------------
 # # use only finite mgfe for binning
@@ -728,7 +728,7 @@ log_sigma_vals = log_sigma_full[mask_positive_full]
 #     ax.legend(fontsize=8)
 #     ax.grid(True)
 
-#     outpath_hex = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_fullMgFe_hexbin.png")
+#     outpath_hex = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_fullMgFe_hexbin.pdf")
 #     fig.savefig(outpath_hex, dpi=300, bbox_inches='tight')
 #     plt.close(fig)
 #     print("Saved Mg/Fe-coloured mass-size hexbin:", outpath_hex)
@@ -787,7 +787,7 @@ log_sigma_vals = log_sigma_full[mask_positive_full]
 #     ax.legend(fontsize=8)
 #     ax.grid(True)
 
-#     outpath_hex = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_age(lum)_hexbin.png")
+#     outpath_hex = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_age(lum)_hexbin.pdf")
 #     fig.savefig(outpath_hex, dpi=300, bbox_inches='tight')
 #     plt.close(fig)
 #     print("Saved Age(lum)-coloured mass-size hexbin:", outpath_hex)
@@ -908,109 +908,109 @@ log_sigma_vals = log_sigma_full[mask_positive_full]
 # plt.legend(fontsize=8)
 # plt.grid(True)
 
-# outpath_loess = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_age(lum)_loess.png")
+# outpath_loess = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_age(lum)_loess.pdf")
 # plt.savefig(outpath_loess, dpi=300, bbox_inches='tight')
 # plt.close()
 # print("Saved lum age LOESS plot:", outpath_loess)
 
-# # --- LOESS-coloured Luminosity-weighted mean stellar age (Mg/Fe-consistent) ---
+# --- LOESS-coloured Luminosity-weighted mean stellar age (Mg/Fe-consistent) ---
 
-# SHOW_MISSING = True
+SHOW_MISSING = True
 
-# lum_aligned = stellar_lum_plot.copy()
+lum_aligned = stellar_lum_plot.copy()
 
-# have_mask = np.isfinite(lum_aligned)
-# missing_mask = ~have_mask
-# n_have = int(have_mask.sum())
-# n_missing = int(missing_mask.sum())
-# total_plot = int(len(lum_aligned))
+have_mask = np.isfinite(lum_aligned)
+missing_mask = ~have_mask
+n_have = int(have_mask.sum())
+n_missing = int(missing_mask.sum())
+total_plot = int(len(lum_aligned))
 
-# print(f"DEBUG LumAge (LOESS block): have={n_have}, missing={n_missing}, total_plot={total_plot}")
+print(f"DEBUG LumAge (LOESS block): have={n_have}, missing={n_missing}, total_plot={total_plot}")
 
-# fig, ax = plt.subplots(figsize=(8,6))
+fig, ax = plt.subplots(figsize=(8,6))
 
-# if n_have == 0:
-#     if SHOW_MISSING:
-#         ax.scatter(log_m, log_r, s=10, alpha=0.7, color="lightgrey", label="no lum age")
-#     else:
-#         ax.scatter(log_m, log_r, s=10, alpha=0.7, label="galaxies")
-# else:
-#     xvals = log_m[have_mask]
-#     yvals = log_r[have_mask]
-#     zvals = lum_aligned[have_mask]
+if n_have == 0:
+    if SHOW_MISSING:
+        ax.scatter(log_m, log_r, s=10, alpha=0.7, color="lightgrey", label="no lum age")
+    else:
+        ax.scatter(log_m, log_r, s=10, alpha=0.7, label="galaxies")
+else:
+    xvals = log_m[have_mask]
+    yvals = log_r[have_mask]
+    zvals = lum_aligned[have_mask]
 
-#     # grid tightly around the LOESS input points (same as Mg/Fe)
-#     pad_x = 0.05 * (np.nanmax(xvals) - np.nanmin(xvals) + 1e-6)
-#     pad_y = 0.05 * (np.nanmax(yvals) - np.nanmin(yvals) + 1e-6)
-#     nx, ny = 300, 220
-#     xg = np.linspace(np.nanmin(xvals) - pad_x, np.nanmax(xvals) + pad_x, nx)
-#     yg = np.linspace(np.nanmin(yvals) - pad_y, np.nanmax(yvals) + pad_y, ny)
-#     Xg, Yg = np.meshgrid(xg, yg)
-#     pts_grid = np.column_stack((Xg.ravel(), Yg.ravel()))
+    # grid tightly around the LOESS input points (same as Mg/Fe)
+    pad_x = 0.05 * (np.nanmax(xvals) - np.nanmin(xvals) + 1e-6)
+    pad_y = 0.05 * (np.nanmax(yvals) - np.nanmin(yvals) + 1e-6)
+    nx, ny = 300, 220
+    xg = np.linspace(np.nanmin(xvals) - pad_x, np.nanmax(xvals) + pad_x, nx)
+    yg = np.linspace(np.nanmin(yvals) - pad_y, np.nanmax(yvals) + pad_y, ny)
+    Xg, Yg = np.meshgrid(xg, yg)
+    pts_grid = np.column_stack((Xg.ravel(), Yg.ravel()))
 
-#     # KDTree on LOESS input points
-#     tree_data = KDTree(np.column_stack((xvals, yvals)))
-#     d_grid, _ = tree_data.query(pts_grid, k=1)
+    # KDTree on LOESS input points
+    tree_data = KDTree(np.column_stack((xvals, yvals)))
+    d_grid, _ = tree_data.query(pts_grid, k=1)
 
-#     d_data, _ = tree_data.query(np.column_stack((xvals, yvals)), k=2)
-#     if d_data.ndim == 2 and d_data.shape[1] >= 2:
-#         typical_spacing = float(np.nanpercentile(d_data[:, 1], 95))
-#     else:
-#         typical_spacing = float(np.nanmedian(d_grid))
+    d_data, _ = tree_data.query(np.column_stack((xvals, yvals)), k=2)
+    if d_data.ndim == 2 and d_data.shape[1] >= 2:
+        typical_spacing = float(np.nanpercentile(d_data[:, 1], 95))
+    else:
+        typical_spacing = float(np.nanmedian(d_grid))
 
-#     d_thresh = max(typical_spacing * 1.3, 1e-6)
-#     inside_mask = (d_grid <= d_thresh)
-#     idx_inside = np.nonzero(inside_mask)[0]
+    d_thresh = max(typical_spacing * 1.3, 1e-6)
+    inside_mask = (d_grid <= d_thresh)
+    idx_inside = np.nonzero(inside_mask)[0]
 
-#     if idx_inside.size > 0:
-#         xout = pts_grid[idx_inside, 0]
-#         yout = pts_grid[idx_inside, 1]
+    if idx_inside.size > 0:
+        xout = pts_grid[idx_inside, 0]
+        yout = pts_grid[idx_inside, 1]
 
-#         frac_loess = 0.01
-#         degree = 1
+        frac_loess = 0.01
+        degree = 1
 
-#         Zflat_inside, _ = loess_2d(xvals, yvals, zvals, frac=frac_loess, degree=degree,
-#                                    xout=xout, yout=yout)
+        Zflat_inside, _ = loess_2d(xvals, yvals, zvals, frac=frac_loess, degree=degree,
+                                   xout=xout, yout=yout)
 
-#         Zflat = np.full(pts_grid.shape[0], np.nan, dtype=float)
-#         Zflat[idx_inside] = Zflat_inside
-#         Zgrid = Zflat.reshape((ny, nx))
-#         Zmask = np.ma.masked_invalid(Zgrid)
+        Zflat = np.full(pts_grid.shape[0], np.nan, dtype=float)
+        Zflat[idx_inside] = Zflat_inside
+        Zgrid = Zflat.reshape((ny, nx))
+        Zmask = np.ma.masked_invalid(Zgrid)
 
-#         try:
-#             vmin = float(np.nanpercentile(zvals, 5))
-#             vmax = float(np.nanpercentile(zvals, 95))
-#         except Exception:
-#             vmin, vmax = float(np.nanmin(zvals)), float(np.nanmax(zvals))
-#         if not np.isfinite(vmin) or not np.isfinite(vmax) or vmin == vmax:
-#             med = float(np.nanmedian(zvals))
-#             span = max(0.2, 0.5 * max(1e-6, abs(med)))
-#             vmin = med - span
-#             vmax = med + span
+        try:
+            vmin = float(np.nanpercentile(zvals, 5))
+            vmax = float(np.nanpercentile(zvals, 95))
+        except Exception:
+            vmin, vmax = float(np.nanmin(zvals)), float(np.nanmax(zvals))
+        if not np.isfinite(vmin) or not np.isfinite(vmax) or vmin == vmax:
+            med = float(np.nanmedian(zvals))
+            span = max(0.2, 0.5 * max(1e-6, abs(med)))
+            vmin = med - span
+            vmax = med + span
 
-#         cmap = plt.get_cmap("viridis")
-#         im = ax.pcolormesh(Xg, Yg, Zmask, shading='auto', cmap=cmap, vmin=vmin, vmax=vmax)
-#         cbar = fig.colorbar(im, ax=ax)
-#         cbar.set_label("Age [Gyr]")
+        cmap = plt.get_cmap("viridis")
+        im = ax.pcolormesh(Xg, Yg, Zmask, shading='auto', cmap=cmap, vmin=vmin, vmax=vmax)
+        cbar = fig.colorbar(im, ax=ax)
+        cbar.set_label("Age [Gyr]")
 
-#         ax.scatter(xout, yout, s=1, c='k', alpha=0.05, linewidths=0)
-#     else:
-#         ax.scatter(xvals, yvals, c=zvals, cmap='viridis', s=12, edgecolors='none')
+        ax.scatter(xout, yout, s=1, c='k', alpha=0.05, linewidths=0)
+    else:
+        ax.scatter(xvals, yvals, c=zvals, cmap='viridis', s=12, edgecolors='none')
 
-#     if SHOW_MISSING and n_missing > 0:
-#         ax.scatter(log_m[missing_mask], log_r[missing_mask], color="lightgrey", s=8, alpha=0.6, label="no lum age")
+    if SHOW_MISSING and n_missing > 0:
+        ax.scatter(log_m[missing_mask], log_r[missing_mask], color="lightgrey", s=8, alpha=0.6, label="no lum age")
 
-# ax.plot(np.log10(stellar_masses), (2/3)*(np.log10(stellar_masses) - logsigma_ref),
-#         linestyle='--', color='black', label=fr'Compactness threshold ($\lg\Sigma_{{1.5}} = {logsigma_ref}$)')
-# ax.set_xlabel(r"lg(Stellar Mass / $M_{\odot}$)")
-# ax.set_ylabel(r"lg(Half Mass Radius / kpc)")
-# ax.legend(fontsize=8)
-# ax.grid(True)
+ax.plot(np.log10(stellar_masses), (2/3)*(np.log10(stellar_masses) - logsigma_ref),
+        linestyle='--', color='black', label=fr"compactness threshold $\log_{{10}} \Sigma_{{1.5}} = {logsigma_ref}$)")
+ax.set_xlabel(r"$\log_{{10}}(M_\star / M_{\odot}$)")
+ax.set_ylabel(r"$\log_{{10}}(R_{1/2, \star} / \mathrm{kpc})$")
+ax.legend(fontsize=8)
+ax.grid(True)
 
-# outpath_loess = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_age(lum)_loess.png")
-# fig.savefig(outpath_loess, dpi=300, bbox_inches='tight')
-# plt.close(fig)
-# print("Saved lum age LOESS plot (Mg/Fe-consistent):", outpath_loess)
+outpath_loess = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_age(lum)_loess.pdf")
+fig.savefig(outpath_loess, dpi=300, bbox_inches='tight')
+plt.close(fig)
+print("Saved lum age LOESS plot (Mg/Fe-consistent):", outpath_loess)
 
 # # ----------------- Hexbin version (total star formation rate) -----------------
 
@@ -1066,21 +1066,21 @@ log_sigma_vals = log_sigma_full[mask_positive_full]
 #     ax.legend(fontsize=8)
 #     ax.grid(True)
 
-#     outpath_hex = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_sfr_hexbin.png")
+#     outpath_hex = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_sfr_hexbin.pdf")
 #     fig.savefig(outpath_hex, dpi=300, bbox_inches='tight')
 #     plt.close(fig)
 #     print("Saved sfr-coloured mass-size hexbin:", outpath_hex)
 
 # # ----------------- Hexbin version (specific star formation rate) -----------------
 
-# # Compute sSFR [yr^-1] and take log10
-# with np.errstate(divide="ignore", invalid="ignore"):
-#     ssfr_plot = np.where(m_in[mask] > 0,
-#                           sfr_plot / m_in[mask],
-#                           np.nan)
-#     log_ssfr_plot = np.where(ssfr_plot > 0,
-#                               np.log10(ssfr_plot),
-#                               np.nan)
+# Compute sSFR [yr^-1] and take log10
+with np.errstate(divide="ignore", invalid="ignore"):
+    ssfr_plot = np.where(m_in[mask] > 0,
+                          sfr_plot / m_in[mask],
+                          np.nan)
+    log_ssfr_plot = np.where(ssfr_plot > 0,
+                              np.log10(ssfr_plot),
+                              np.nan)
 
 # finite_mask = np.isfinite(log_ssfr_plot)
 # x_h = log_m[finite_mask]
@@ -1133,7 +1133,7 @@ log_sigma_vals = log_sigma_full[mask_positive_full]
 #     ax.legend(fontsize=8)
 #     ax.grid(True)
 
-#     outpath_hex = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_ssfr_hexbin.png")
+#     outpath_hex = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_ssfr_hexbin.pdf")
 #     fig.savefig(outpath_hex, dpi=300, bbox_inches='tight')
 #     plt.close(fig)
 #     print("Saved sSFR-coloured mass-size hexbin:", outpath_hex)
@@ -1176,7 +1176,7 @@ log_sigma_vals = log_sigma_full[mask_positive_full]
 #             linestyle='--', color='black', label=fr'Compactness threshold ($\lg\Sigma_{{1.5}} = {logsigma_ref}$)')
 #     ax.set_xlabel(r"lg(Stellar Mass / $M_{\odot}$)"); ax.set_ylabel(r"lg(Half Mass Radius / kpc)")
 #     ax.legend(fontsize=8); ax.grid(True)
-#     outpath_loess = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_ssfr_loess.png")
+#     outpath_loess = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_ssfr_loess.pdf")
 #     fig.savefig(outpath_loess, dpi=300, bbox_inches='tight'); plt.close(fig)
 #     print("Saved fallback ssfr scatter:", outpath_loess)
 
@@ -1303,115 +1303,115 @@ log_sigma_vals = log_sigma_full[mask_positive_full]
 #     ax.set_ylabel(r"lg(Half Mass Radius / kpc)")
 #     ax.legend(fontsize=8); ax.grid(True)
 
-#     outpath_loess = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_ssfr_loess.png")
+#     outpath_loess = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_ssfr_loess.pdf")
 #     fig.savefig(outpath_loess, dpi=300, bbox_inches='tight'); plt.close(fig)
 #     print("Saved ssfr LOESS plot (Fix A):", outpath_loess)
 # # ------------------------------------------------------------------------------------
 
-# # --- LOESS-coloured specific SFR (Mg/Fe-consistent) ---
+# --- LOESS-coloured specific SFR (Mg/Fe-consistent) ---
 
-# SHOW_MISSING = False
+SHOW_MISSING = False
 
-# ssfr_aligned = log_ssfr_plot.copy()   # already log10(sSFR) aligned to plotting arrays
+ssfr_aligned = log_ssfr_plot.copy()   # already log10(sSFR) aligned to plotting arrays
 
-# # --- impose lower floor instead of masking ---
-# SSFR_FLOOR = -12.0
+# --- impose lower floor instead of masking ---
+SSFR_FLOOR = -12.0
 
-# # replace -inf and other non-finite values with floor
-# ssfr_aligned[~np.isfinite(ssfr_aligned)] = SSFR_FLOOR
+# replace -inf and other non-finite values with floor
+ssfr_aligned[~np.isfinite(ssfr_aligned)] = SSFR_FLOOR
 
-# # now everything is finite
-# have_mask = np.isfinite(ssfr_aligned)
-# missing_mask = np.zeros_like(have_mask, dtype=bool)
+# now everything is finite
+have_mask = np.isfinite(ssfr_aligned)
+missing_mask = np.zeros_like(have_mask, dtype=bool)
 
-# n_have = int(have_mask.sum())
-# n_missing = 0
-# total_plot = int(len(ssfr_aligned))
+n_have = int(have_mask.sum())
+n_missing = 0
+total_plot = int(len(ssfr_aligned))
 
-# print(f"DEBUG sSFR (LOESS block): have={n_have}, missing={n_missing}, total_plot={total_plot}")
+print(f"DEBUG sSFR (LOESS block): have={n_have}, missing={n_missing}, total_plot={total_plot}")
 
-# fig, ax = plt.subplots(figsize=(8,6))
+fig, ax = plt.subplots(figsize=(8,6))
 
-# if n_have == 0:
-#     if SHOW_MISSING:
-#         ax.scatter(log_m, log_r, s=10, alpha=0.7, color="lightgrey", label="no sSFR")
-#     else:
-#         ax.scatter(log_m, log_r, s=10, alpha=0.7, label="galaxies")
-# else:
-#     xvals = log_m[have_mask]
-#     yvals = log_r[have_mask]
-#     zvals = ssfr_aligned[have_mask]
+if n_have == 0:
+    if SHOW_MISSING:
+        ax.scatter(log_m, log_r, s=10, alpha=0.7, color="lightgrey", label="no sSFR")
+    else:
+        ax.scatter(log_m, log_r, s=10, alpha=0.7, label="galaxies")
+else:
+    xvals = log_m[have_mask]
+    yvals = log_r[have_mask]
+    zvals = ssfr_aligned[have_mask]
 
-#     pad_x = 0.05 * (np.nanmax(xvals) - np.nanmin(xvals) + 1e-6)
-#     pad_y = 0.05 * (np.nanmax(yvals) - np.nanmin(yvals) + 1e-6)
-#     nx, ny = 300, 220
-#     xg = np.linspace(np.nanmin(xvals) - pad_x, np.nanmax(xvals) + pad_x, nx)
-#     yg = np.linspace(np.nanmin(yvals) - pad_y, np.nanmax(yvals) + pad_y, ny)
-#     Xg, Yg = np.meshgrid(xg, yg)
-#     pts_grid = np.column_stack((Xg.ravel(), Yg.ravel()))
+    pad_x = 0.05 * (np.nanmax(xvals) - np.nanmin(xvals) + 1e-6)
+    pad_y = 0.05 * (np.nanmax(yvals) - np.nanmin(yvals) + 1e-6)
+    nx, ny = 300, 220
+    xg = np.linspace(np.nanmin(xvals) - pad_x, np.nanmax(xvals) + pad_x, nx)
+    yg = np.linspace(np.nanmin(yvals) - pad_y, np.nanmax(yvals) + pad_y, ny)
+    Xg, Yg = np.meshgrid(xg, yg)
+    pts_grid = np.column_stack((Xg.ravel(), Yg.ravel()))
 
-#     tree_data = KDTree(np.column_stack((xvals, yvals)))
-#     d_grid, _ = tree_data.query(pts_grid, k=1)
+    tree_data = KDTree(np.column_stack((xvals, yvals)))
+    d_grid, _ = tree_data.query(pts_grid, k=1)
 
-#     d_data, _ = tree_data.query(np.column_stack((xvals, yvals)), k=2)
-#     if d_data.ndim == 2 and d_data.shape[1] >= 2:
-#         typical_spacing = float(np.nanpercentile(d_data[:, 1], 95))
-#     else:
-#         typical_spacing = float(np.nanmedian(d_grid))
+    d_data, _ = tree_data.query(np.column_stack((xvals, yvals)), k=2)
+    if d_data.ndim == 2 and d_data.shape[1] >= 2:
+        typical_spacing = float(np.nanpercentile(d_data[:, 1], 95))
+    else:
+        typical_spacing = float(np.nanmedian(d_grid))
 
-#     d_thresh = max(typical_spacing * 1.3, 1e-6)
-#     inside_mask = (d_grid <= d_thresh)
-#     idx_inside = np.nonzero(inside_mask)[0]
+    d_thresh = max(typical_spacing * 1.3, 1e-6)
+    inside_mask = (d_grid <= d_thresh)
+    idx_inside = np.nonzero(inside_mask)[0]
 
-#     if idx_inside.size > 0:
-#         xout = pts_grid[idx_inside, 0]
-#         yout = pts_grid[idx_inside, 1]
+    if idx_inside.size > 0:
+        xout = pts_grid[idx_inside, 0]
+        yout = pts_grid[idx_inside, 1]
 
-#         frac_loess = 0.01
-#         degree = 1
+        frac_loess = 0.01
+        degree = 1
 
-#         Zflat_inside, _ = loess_2d(xvals, yvals, zvals, frac=frac_loess, degree=degree,
-#                                    xout=xout, yout=yout)
+        Zflat_inside, _ = loess_2d(xvals, yvals, zvals, frac=frac_loess, degree=degree,
+                                   xout=xout, yout=yout)
 
-#         Zflat = np.full(pts_grid.shape[0], np.nan, dtype=float)
-#         Zflat[idx_inside] = Zflat_inside
-#         Zgrid = Zflat.reshape((ny, nx))
-#         Zmask = np.ma.masked_invalid(Zgrid)
+        Zflat = np.full(pts_grid.shape[0], np.nan, dtype=float)
+        Zflat[idx_inside] = Zflat_inside
+        Zgrid = Zflat.reshape((ny, nx))
+        Zmask = np.ma.masked_invalid(Zgrid)
 
-#         try:
-#             vmin = float(np.nanpercentile(zvals, 5))
-#             vmax = float(np.nanpercentile(zvals, 95))
-#         except Exception:
-#             vmin, vmax = float(np.nanmin(zvals)), float(np.nanmax(zvals))
-#         if not np.isfinite(vmin) or not np.isfinite(vmax) or vmin == vmax:
-#             med = float(np.nanmedian(zvals))
-#             span = max(0.3, 0.5 * max(1e-6, abs(med)))
-#             vmin = med - span
-#             vmax = med + span
+        try:
+            vmin = float(np.nanpercentile(zvals, 5))
+            vmax = float(np.nanpercentile(zvals, 95))
+        except Exception:
+            vmin, vmax = float(np.nanmin(zvals)), float(np.nanmax(zvals))
+        if not np.isfinite(vmin) or not np.isfinite(vmax) or vmin == vmax:
+            med = float(np.nanmedian(zvals))
+            span = max(0.3, 0.5 * max(1e-6, abs(med)))
+            vmin = med - span
+            vmax = med + span
 
-#         cmap = plt.get_cmap("viridis")
-#         im = ax.pcolormesh(Xg, Yg, Zmask, shading='auto', cmap=cmap, vmin=vmin, vmax=vmax)
-#         cbar = fig.colorbar(im, ax=ax)
-#         cbar.set_label(r"$\lg(\mathrm{sSFR}\ /\ \mathrm{yr}^{-1})$")
+        cmap = plt.get_cmap("viridis")
+        im = ax.pcolormesh(Xg, Yg, Zmask, shading='auto', cmap=cmap, vmin=vmin, vmax=vmax)
+        cbar = fig.colorbar(im, ax=ax)
+        cbar.set_label(r"$\log_{{10}}(\mathrm{sSFR}\ /\ \mathrm{yr}^{-1})$")
 
-#         ax.scatter(xout, yout, s=1.5, c='k', alpha=0.06, linewidths=0)
-#     else:
-#         ax.scatter(xvals, yvals, c=zvals, cmap='viridis', s=12, edgecolors='none')
+        ax.scatter(xout, yout, s=1.5, c='k', alpha=0.06, linewidths=0)
+    else:
+        ax.scatter(xvals, yvals, c=zvals, cmap='viridis', s=12, edgecolors='none')
 
-#     if SHOW_MISSING and n_missing > 0:
-#         ax.scatter(log_m[missing_mask], log_r[missing_mask], color="lightgrey", s=8, alpha=0.6, label="no sSFR")
+    if SHOW_MISSING and n_missing > 0:
+        ax.scatter(log_m[missing_mask], log_r[missing_mask], color="lightgrey", s=8, alpha=0.6, label="no sSFR")
 
-# ax.plot(np.log10(stellar_masses), (2/3)*(np.log10(stellar_masses) - logsigma_ref),
-#         linestyle='--', color='black', label=fr'Compactness threshold ($\lg\Sigma_{{1.5}} = {logsigma_ref}$)')
-# ax.set_xlabel(r"lg(Stellar Mass / $M_{\odot}$)")
-# ax.set_ylabel(r"lg(Half Mass Radius / kpc)")
-# ax.legend(fontsize=8)
-# ax.grid(True)
+ax.plot(np.log10(stellar_masses), (2/3)*(np.log10(stellar_masses) - logsigma_ref),
+        linestyle='--', color='black', label=fr"compactness threshold $\log_{{10}} \Sigma_{{1.5}} = {logsigma_ref}$)")
+ax.set_xlabel(r"$\log_{{10}}(M_\star / M_{\odot}$)")
+ax.set_ylabel(r"$\log_{{10}}(R_{1/2, \star} / \mathrm{kpc})$")
+ax.legend(fontsize=8)
+ax.grid(True)
 
-# outpath_ssfr = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_ssfr_loess.png")
-# fig.savefig(outpath_ssfr, dpi=300, bbox_inches='tight')
-# plt.close(fig)
-# print("Saved sSFR LOESS plot (Mg/Fe-consistent):", outpath_ssfr)
+outpath_ssfr = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_ssfr_loess.pdf")
+fig.savefig(outpath_ssfr, dpi=300, bbox_inches='tight')
+plt.close(fig)
+print("Saved sSFR LOESS plot (Mg/Fe-consistent):", outpath_ssfr)
 
 #    # ----------------- Hexbin version (stellar metallicity) -----------------
 
@@ -1466,109 +1466,109 @@ log_sigma_vals = log_sigma_full[mask_positive_full]
 #     ax.legend(fontsize=8)
 #     ax.grid(True)
 
-#     outpath_hex = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_metallicity_hexbin.png")
+#     outpath_hex = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_metallicity_hexbin.pdf")
 #     fig.savefig(outpath_hex, dpi=300, bbox_inches='tight')
 #     plt.close(fig)
 #     print("Saved Zstar-coloured mass-size hexbin:", outpath_hex)
 
-#     # --- LOESS-coloured metallicity (Mg/Fe-consistent) ---
+    # --- LOESS-coloured metallicity (Mg/Fe-consistent) ---
 
-# SHOW_MISSING = True
+SHOW_MISSING = True
 
-# logZ_aligned = logZstar_rel_in.copy()
+logZ_aligned = logZstar_rel_in.copy()
 
-# have_mask = np.isfinite(logZ_aligned)
-# missing_mask = ~have_mask
-# n_have = int(have_mask.sum())
-# n_missing = int(missing_mask.sum())
-# total_plot = int(len(logZ_aligned))
+have_mask = np.isfinite(logZ_aligned)
+missing_mask = ~have_mask
+n_have = int(have_mask.sum())
+n_missing = int(missing_mask.sum())
+total_plot = int(len(logZ_aligned))
 
-# print(f"DEBUG Zstar (LOESS block): have={n_have}, missing={n_missing}, total_plot={total_plot}")
+print(f"DEBUG Zstar (LOESS block): have={n_have}, missing={n_missing}, total_plot={total_plot}")
 
-# fig, ax = plt.subplots(figsize=(8,6))
+fig, ax = plt.subplots(figsize=(8,6))
 
-# if n_have == 0:
-#     if SHOW_MISSING:
-#         ax.scatter(log_m, log_r, s=10, alpha=0.7, color="lightgrey", label="no metallicity")
-#     else:
-#         ax.scatter(log_m, log_r, s=10, alpha=0.7, label="galaxies")
-# else:
-#     xvals = log_m[have_mask]
-#     yvals = log_r[have_mask]
-#     zvals = logZ_aligned[have_mask]
+if n_have == 0:
+    if SHOW_MISSING:
+        ax.scatter(log_m, log_r, s=10, alpha=0.7, color="lightgrey", label="no metallicity")
+    else:
+        ax.scatter(log_m, log_r, s=10, alpha=0.7, label="galaxies")
+else:
+    xvals = log_m[have_mask]
+    yvals = log_r[have_mask]
+    zvals = logZ_aligned[have_mask]
 
-#     # grid tightly around the LOESS input points (same as Mg/Fe)
-#     pad_x = 0.05 * (np.nanmax(xvals) - np.nanmin(xvals) + 1e-6)
-#     pad_y = 0.05 * (np.nanmax(yvals) - np.nanmin(yvals) + 1e-6)
-#     nx, ny = 300, 220
-#     xg = np.linspace(np.nanmin(xvals) - pad_x, np.nanmax(xvals) + pad_x, nx)
-#     yg = np.linspace(np.nanmin(yvals) - pad_y, np.nanmax(yvals) + pad_y, ny)
-#     Xg, Yg = np.meshgrid(xg, yg)
-#     pts_grid = np.column_stack((Xg.ravel(), Yg.ravel()))
+    # grid tightly around the LOESS input points (same as Mg/Fe)
+    pad_x = 0.05 * (np.nanmax(xvals) - np.nanmin(xvals) + 1e-6)
+    pad_y = 0.05 * (np.nanmax(yvals) - np.nanmin(yvals) + 1e-6)
+    nx, ny = 300, 220
+    xg = np.linspace(np.nanmin(xvals) - pad_x, np.nanmax(xvals) + pad_x, nx)
+    yg = np.linspace(np.nanmin(yvals) - pad_y, np.nanmax(yvals) + pad_y, ny)
+    Xg, Yg = np.meshgrid(xg, yg)
+    pts_grid = np.column_stack((Xg.ravel(), Yg.ravel()))
 
-#     # KDTree on LOESS input points
-#     tree_data = KDTree(np.column_stack((xvals, yvals)))
-#     d_grid, _ = tree_data.query(pts_grid, k=1)
+    # KDTree on LOESS input points
+    tree_data = KDTree(np.column_stack((xvals, yvals)))
+    d_grid, _ = tree_data.query(pts_grid, k=1)
 
-#     d_data, _ = tree_data.query(np.column_stack((xvals, yvals)), k=2)
-#     if d_data.ndim == 2 and d_data.shape[1] >= 2:
-#         typical_spacing = float(np.nanpercentile(d_data[:, 1], 95))
-#     else:
-#         typical_spacing = float(np.nanmedian(d_grid))
+    d_data, _ = tree_data.query(np.column_stack((xvals, yvals)), k=2)
+    if d_data.ndim == 2 and d_data.shape[1] >= 2:
+        typical_spacing = float(np.nanpercentile(d_data[:, 1], 95))
+    else:
+        typical_spacing = float(np.nanmedian(d_grid))
 
-#     d_thresh = max(typical_spacing * 1.3, 1e-6)
-#     inside_mask = (d_grid <= d_thresh)
-#     idx_inside = np.nonzero(inside_mask)[0]
+    d_thresh = max(typical_spacing * 1.3, 1e-6)
+    inside_mask = (d_grid <= d_thresh)
+    idx_inside = np.nonzero(inside_mask)[0]
 
-#     if idx_inside.size > 0:
-#         xout = pts_grid[idx_inside, 0]
-#         yout = pts_grid[idx_inside, 1]
+    if idx_inside.size > 0:
+        xout = pts_grid[idx_inside, 0]
+        yout = pts_grid[idx_inside, 1]
 
-#         frac_loess = 0.01
-#         degree = 1
+        frac_loess = 0.01
+        degree = 1
 
-#         Zflat_inside, _ = loess_2d(xvals, yvals, zvals, frac=frac_loess, degree=degree,
-#                                    xout=xout, yout=yout)
+        Zflat_inside, _ = loess_2d(xvals, yvals, zvals, frac=frac_loess, degree=degree,
+                                   xout=xout, yout=yout)
 
-#         Zflat = np.full(pts_grid.shape[0], np.nan, dtype=float)
-#         Zflat[idx_inside] = Zflat_inside
-#         Zgrid = Zflat.reshape((ny, nx))
-#         Zmask = np.ma.masked_invalid(Zgrid)
+        Zflat = np.full(pts_grid.shape[0], np.nan, dtype=float)
+        Zflat[idx_inside] = Zflat_inside
+        Zgrid = Zflat.reshape((ny, nx))
+        Zmask = np.ma.masked_invalid(Zgrid)
 
-#         try:
-#             vmin = float(np.nanpercentile(zvals, 5))
-#             vmax = float(np.nanpercentile(zvals, 95))
-#         except Exception:
-#             vmin, vmax = float(np.nanmin(zvals)), float(np.nanmax(zvals))
-#         if not np.isfinite(vmin) or not np.isfinite(vmax) or vmin == vmax:
-#             med = float(np.nanmedian(zvals))
-#             span = max(0.2, 0.5 * max(1e-6, abs(med)))
-#             vmin = med - span
-#             vmax = med + span
+        try:
+            vmin = float(np.nanpercentile(zvals, 5))
+            vmax = float(np.nanpercentile(zvals, 95))
+        except Exception:
+            vmin, vmax = float(np.nanmin(zvals)), float(np.nanmax(zvals))
+        if not np.isfinite(vmin) or not np.isfinite(vmax) or vmin == vmax:
+            med = float(np.nanmedian(zvals))
+            span = max(0.2, 0.5 * max(1e-6, abs(med)))
+            vmin = med - span
+            vmax = med + span
 
-#         cmap = plt.get_cmap("viridis")
-#         im = ax.pcolormesh(Xg, Yg, Zmask, shading='auto', cmap=cmap, vmin=vmin, vmax=vmax)
-#         cbar = fig.colorbar(im, ax=ax)
-#         cbar.set_label(r"$\lg[Z_\star / Z_\odot]$")
+        cmap = plt.get_cmap("viridis")
+        im = ax.pcolormesh(Xg, Yg, Zmask, shading='auto', cmap=cmap, vmin=vmin, vmax=vmax)
+        cbar = fig.colorbar(im, ax=ax)
+        cbar.set_label("[Z/H]")
 
-#         ax.scatter(xout, yout, s=1, c='k', alpha=0.05, linewidths=0)
-#     else:
-#         ax.scatter(xvals, yvals, c=zvals, cmap='viridis', s=12, edgecolors='none')
+        ax.scatter(xout, yout, s=1, c='k', alpha=0.05, linewidths=0)
+    else:
+        ax.scatter(xvals, yvals, c=zvals, cmap='viridis', s=12, edgecolors='none')
 
-#     if SHOW_MISSING and n_missing > 0:
-#         ax.scatter(log_m[missing_mask], log_r[missing_mask], color="lightgrey", s=8, alpha=0.6, label="no metallicity")
+    if SHOW_MISSING and n_missing > 0:
+        ax.scatter(log_m[missing_mask], log_r[missing_mask], color="lightgrey", s=8, alpha=0.6, label="no metallicity")
 
-# ax.plot(np.log10(stellar_masses), (2/3)*(np.log10(stellar_masses) - logsigma_ref),
-#         linestyle='--', color='black', label=fr'Compactness threshold ($\lg\Sigma_{{1.5}} = {logsigma_ref}$)')
-# ax.set_xlabel(r"lg(Stellar Mass / $M_{\odot}$)")
-# ax.set_ylabel(r"lg(Half Mass Radius / kpc)")
-# ax.legend(fontsize=8)
-# ax.grid(True)
+ax.plot(np.log10(stellar_masses), (2/3)*(np.log10(stellar_masses) - logsigma_ref),
+        linestyle='--', color='black', label=fr"compactness threshold $\log_{{10}} \Sigma_{{1.5}} = {logsigma_ref}$)")
+ax.set_xlabel(r"$\log_{{10}}(M_\star / M_{\odot}$)")
+ax.set_ylabel(r"$\log_{{10}}(R_{1/2, \star} / \mathrm{kpc})$")
+ax.legend(fontsize=8)
+ax.grid(True)
 
-# outpath_loess = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_metallicity_loess.png")
-# fig.savefig(outpath_loess, dpi=300, bbox_inches='tight')
-# plt.close(fig)
-# print("Saved metallicity LOESS plot (Mg/Fe-consistent):", outpath_loess)
+outpath_loess = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_metallicity_loess.pdf")
+fig.savefig(outpath_loess, dpi=300, bbox_inches='tight')
+plt.close(fig)
+print("Saved metallicity LOESS plot (Mg/Fe-consistent):", outpath_loess)
 
 #    # ----------------- Hexbin version (mass weighted mean stellar age) -----------------
 
@@ -1624,7 +1624,7 @@ log_sigma_vals = log_sigma_full[mask_positive_full]
 #     ax.legend(fontsize=8)
 #     ax.grid(True)
 
-#     outpath_hex = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_age(mw)_hexbin.png")
+#     outpath_hex = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_age(mw)_hexbin.pdf")
 #     fig.savefig(outpath_hex, dpi=300, bbox_inches='tight')
 #     plt.close(fig)
 #     print("Saved Age(mw)-coloured mass-size hexbin:", outpath_hex)
@@ -1723,7 +1723,7 @@ log_sigma_vals = log_sigma_full[mask_positive_full]
 # ax.legend(fontsize=8)
 # ax.grid(True)
 
-# outpath_loess = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_age(mw)_loess.png")
+# outpath_loess = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_age(mw)_loess.pdf")
 # fig.savefig(outpath_loess, dpi=300, bbox_inches='tight')
 # plt.close(fig)
 # print("Saved mw age LOESS plot (Mg/Fe-consistent):", outpath_loess)
@@ -1883,7 +1883,7 @@ else:
 
         cbar = fig.colorbar(im, ax=ax)
 
-        cbar.set_label(r'$\lg(\sigma / \mathrm{km}\ \mathrm{s}^{-1})$')
+        cbar.set_label(r'$\log_{10}(\sigma / \mathrm{km}\ \mathrm{s}^{-1})$')
 
         ax.scatter(xout, yout, s=1,
 
@@ -1915,10 +1915,10 @@ ax.plot(np.log10(stellar_masses),
 
         linestyle='--', color='black',
 
-        label=fr'Compactness threshold ($\lg\Sigma_{{1.5}} = {logsigma_ref}$)')
+        label=fr"compactness threshold $\log_{{10}} \Sigma_{{1.5}} = {logsigma_ref}$)")
 
-ax.set_xlabel(r"$\lg(M_\star / M_{\odot})$")
-ax.set_ylabel(r"$\lg(R_{1/2, \star} / \mathrm{kpc})$")
+ax.set_xlabel(r"$\log_{{10}}(M_\star / M_{\odot}$)")
+ax.set_ylabel(r"$\log_{{10}}(R_{1/2, \star} / \mathrm{kpc})$")
 
 ax.legend(fontsize=8)
 
@@ -1928,7 +1928,7 @@ outpath_sigma = os.path.join(
 
     outdir,
 
-    f"mass_size_z{ztarget:.1f}_sigma_loess.png"
+    f"mass_size_z{ztarget:.1f}_sigma_loess.pdf"
 
 )
 

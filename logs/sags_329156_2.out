@@ -1,0 +1,169 @@
+Using PARTRIDGE at: /home/mzemsch/COLIBRE-analysis/PARTRIDGE
+Found 223 relic IDs in z0_sags_trackids.csv using column 'track_id'
+Rendering IDs in range [30, 45) -> 15 galaxies
+[1/15] Rendering halo 1085
+Calculating stellar luminosities from FSPS tables.
+Luminosity generation for all bands done. Time taken: 0.396 s (read-in time: 0.380 s).
+Loaded in and pre-processed the data. Total pre-processing time taken: 58.371 s.
+Generated star smoothing lengths. Time taken: 0.056 s.
+Rendered the stars onto the grid. Time taken: 155.095 s.
+Rendered the dust onto the grid. Time taken: 142.129 s.
+Computed the projected luminosity maps. Total time taken: 304.977 s.
+Created the RGB image.
+Created the RGB image.
+Done! Total time taken: 363.501 s.
+[2/15] Rendering halo 436370
+Calculating stellar luminosities from FSPS tables.
+Luminosity generation for all bands done. Time taken: 4.711 s (read-in time: 4.679 s).
+Loaded in and pre-processed the data. Total pre-processing time taken: 115.474 s.
+Generated star smoothing lengths. Time taken: 0.088 s.
+Rendered the stars onto the grid. Time taken: 120.221 s.
+Rendered the dust onto the grid. Time taken: 200.514 s.
+Computed the projected luminosity maps. Total time taken: 327.973 s.
+Created the RGB image.
+Created the RGB image.
+Done! Total time taken: 443.620 s.
+[3/15] Rendering halo 14295
+Calculating stellar luminosities from FSPS tables.
+Luminosity generation for all bands done. Time taken: 1.140 s (read-in time: 1.117 s).
+Loaded in and pre-processed the data. Total pre-processing time taken: 76.979 s.
+Generated star smoothing lengths. Time taken: 0.071 s.
+Rendered the stars onto the grid. Time taken: 136.209 s.
+Rendered the dust onto the grid. Time taken: 121.962 s.
+Computed the projected luminosity maps. Total time taken: 268.436 s.
+Created the RGB image.
+Created the RGB image.
+Done! Total time taken: 345.589 s.
+[4/15] Rendering halo 481813
+Calculating stellar luminosities from FSPS tables.
+Luminosity generation for all bands done. Time taken: 0.497 s (read-in time: 0.485 s).
+Loaded in and pre-processed the data. Total pre-processing time taken: 65.369 s.
+Generated star smoothing lengths. Time taken: 0.044 s.
+Rendered the stars onto the grid. Time taken: 117.735 s.
+Rendered the dust onto the grid. Time taken: 125.298 s.
+Computed the projected luminosity maps. Total time taken: 251.726 s.
+Created the RGB image.
+Created the RGB image.
+Done! Total time taken: 317.248 s.
+[5/15] Rendering halo 9046
+Calculating stellar luminosities from FSPS tables.
+Luminosity generation for all bands done. Time taken: 0.393 s (read-in time: 0.377 s).
+Loaded in and pre-processed the data. Total pre-processing time taken: 71.324 s.
+Generated star smoothing lengths. Time taken: 0.049 s.
+Rendered the stars onto the grid. Time taken: 147.755 s.
+Rendered the dust onto the grid. Time taken: 125.221 s.
+Computed the projected luminosity maps. Total time taken: 280.114 s.
+Created the RGB image.
+Created the RGB image.
+Done! Total time taken: 351.571 s.
+[6/15] Rendering halo 7598
+Calculating stellar luminosities from FSPS tables.
+Luminosity generation for all bands done. Time taken: 14.415 s (read-in time: 13.614 s).
+Loaded in and pre-processed the data. Total pre-processing time taken: 176.054 s.
+Generated star smoothing lengths. Time taken: 1.322 s.
+Rendered the stars onto the grid. Time taken: 176.948 s.
+Rendered the dust onto the grid. Time taken: 164.699 s.
+Computed the projected luminosity maps. Total time taken: 348.950 s.
+Created the RGB image.
+Created the RGB image.
+Done! Total time taken: 526.428 s.
+[7/15] Rendering halo 10640
+Calculating stellar luminosities from FSPS tables.
+Luminosity generation for all bands done. Time taken: 14.126 s (read-in time: 12.321 s).
+Loaded in and pre-processed the data. Total pre-processing time taken: 189.210 s.
+Generated star smoothing lengths. Time taken: 2.957 s.
+Rendered the stars onto the grid. Time taken: 179.274 s.
+Rendered the dust onto the grid. Time taken: 190.007 s.
+Computed the projected luminosity maps. Total time taken: 376.612 s.
+Created the RGB image.
+Created the RGB image.
+Done! Total time taken: 568.870 s.
+[8/15] Rendering halo 80788
+Calculating stellar luminosities from FSPS tables.
+Luminosity generation for all bands done. Time taken: 13.863 s (read-in time: 13.275 s).
+Loaded in and pre-processed the data. Total pre-processing time taken: 171.830 s.
+Generated star smoothing lengths. Time taken: 1.110 s.
+Rendered the stars onto the grid. Time taken: 147.548 s.
+Rendered the dust onto the grid. Time taken: 170.354 s.
+Computed the projected luminosity maps. Total time taken: 326.531 s.
+Created the RGB image.
+Created the RGB image.
+Done! Total time taken: 499.550 s.
+[9/15] Rendering halo 10925
+Calculating stellar luminosities from FSPS tables.
+Luminosity generation for all bands done. Time taken: 19.703 s (read-in time: 19.334 s).
+Loaded in and pre-processed the data. Total pre-processing time taken: 259.204 s.
+Generated star smoothing lengths. Time taken: 0.680 s.
+Rendered the stars onto the grid. Time taken: 152.775 s.
+Rendered the dust onto the grid. Time taken: 207.633 s.
+Computed the projected luminosity maps. Total time taken: 367.942 s.
+Created the RGB image.
+Created the RGB image.
+Done! Total time taken: 627.921 s.
+[10/15] Rendering halo 16180
+Calculating stellar luminosities from FSPS tables.
+Luminosity generation for all bands done. Time taken: 0.875 s (read-in time: 0.856 s).
+Loaded in and pre-processed the data. Total pre-processing time taken: 71.819 s.
+Generated star smoothing lengths. Time taken: 0.055 s.
+Rendered the stars onto the grid. Time taken: 128.388 s.
+Rendered the dust onto the grid. Time taken: 148.306 s.
+Computed the projected luminosity maps. Total time taken: 283.934 s.
+Created the RGB image.
+Created the RGB image.
+Done! Total time taken: 355.891 s.
+[11/15] Rendering halo 22287
+Calculating stellar luminosities from FSPS tables.
+Luminosity generation for all bands done. Time taken: 6.483 s (read-in time: 6.258 s).
+Loaded in and pre-processed the data. Total pre-processing time taken: 125.065 s.
+Generated star smoothing lengths. Time taken: 2.377 s.
+Rendered the stars onto the grid. Time taken: 128.714 s.
+Rendered the dust onto the grid. Time taken: 151.009 s.
+Computed the projected luminosity maps. Total time taken: 287.329 s.
+Created the RGB image.
+Created the RGB image.
+Done! Total time taken: 414.859 s.
+[12/15] Rendering halo 985428
+Calculating stellar luminosities from FSPS tables.
+Luminosity generation for all bands done. Time taken: 7.548 s (read-in time: 7.392 s).
+Loaded in and pre-processed the data. Total pre-processing time taken: 105.318 s.
+Generated star smoothing lengths. Time taken: 0.573 s.
+Rendered the stars onto the grid. Time taken: 136.697 s.
+Rendered the dust onto the grid. Time taken: 190.976 s.
+Computed the projected luminosity maps. Total time taken: 335.499 s.
+Created the RGB image.
+Created the RGB image.
+Done! Total time taken: 441.537 s.
+[13/15] Rendering halo 6
+Calculating stellar luminosities from FSPS tables.
+Luminosity generation for all bands done. Time taken: 2.337 s (read-in time: 2.196 s).
+Loaded in and pre-processed the data. Total pre-processing time taken: 85.323 s.
+Generated star smoothing lengths. Time taken: 0.270 s.
+Rendered the stars onto the grid. Time taken: 123.430 s.
+Rendered the dust onto the grid. Time taken: 142.083 s.
+Computed the projected luminosity maps. Total time taken: 272.624 s.
+Created the RGB image.
+Created the RGB image.
+Done! Total time taken: 358.334 s.
+[14/15] Rendering halo 189198
+Calculating stellar luminosities from FSPS tables.
+Luminosity generation for all bands done. Time taken: 6.475 s (read-in time: 5.808 s).
+Loaded in and pre-processed the data. Total pre-processing time taken: 102.854 s.
+Generated star smoothing lengths. Time taken: 1.338 s.
+Rendered the stars onto the grid. Time taken: 169.795 s.
+Rendered the dust onto the grid. Time taken: 172.861 s.
+Computed the projected luminosity maps. Total time taken: 351.249 s.
+Created the RGB image.
+Created the RGB image.
+Done! Total time taken: 455.631 s.
+[15/15] Rendering halo 852408
+Calculating stellar luminosities from FSPS tables.
+Luminosity generation for all bands done. Time taken: 7.581 s (read-in time: 6.694 s).
+Loaded in and pre-processed the data. Total pre-processing time taken: 109.107 s.
+Generated star smoothing lengths. Time taken: 1.715 s.
+Rendered the stars onto the grid. Time taken: 149.396 s.
+Rendered the dust onto the grid. Time taken: 181.111 s.
+Computed the projected luminosity maps. Total time taken: 337.739 s.
+Created the RGB image.
+Created the RGB image.
+Done! Total time taken: 448.658 s.
+Done.

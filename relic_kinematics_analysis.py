@@ -4,45 +4,43 @@ relic_kinematics_analysis.py
 
 Standalone kinematics analysis for COLIBRE relic-candidate work.
 
-What this script does
----------------------
-1) Reads your DoR / candidate CSV and matches it to SOAP via HaloCatalogueIndex.
-2) Loads z=0 SOAP galaxy properties (mass, radius, central/satellite, track id).
-3) Loads kinematic summary quantities from the SOAP-HBT extra HDF5 file at the
+Main goals
+----------
+1) Match the DoR/candidate table to SOAP via HaloCatalogueIndex.
+2) Load the z=0 structural quantities needed for the relic analysis.
+3) Load kinematic summary quantities from the SOAP-HBT extra file at the
    HalfMassRadiusStars aperture.
-4) Computes v/sigma and a proxy for lambda_R when only aperture-integrated
-   quantities are available.
-5) Builds a matched kinematic table and several diagnostic plots.
-6) Tests the question:
-      At fixed stellar mass and compactness, are relics systematically more or
-      less rotation-supported than non-relic galaxies, and does this depend on
-      being a central/satellite or on ex-situ fraction?
+4) Compute v/sigma and a proxy for lambda_R from aperture-integrated quantities.
+5) Build a matched kinematic table and diagnostic plots.
+6) Answer whether relics are more/less rotation-supported than non-relics at
+   fixed mass and compactness, and whether this depends on central/satellite or
+   ex-situ fraction.
 
 Important caveat
 ----------------
-The extra file you listed contains aperture-integrated quantities, not a spatially
-resolved stellar kinematic map. Therefore the script cannot compute the true
-observational lambda_R definition exactly. It computes a conservative proxy from
-aperture-integrated rotational velocity and velocity dispersion:
+The extra file contains aperture-integrated kinematic quantities, not a
+projected particle/spaxel map. Therefore the script cannot compute the exact
+observational lambda_R definition. It computes a clearly labelled proxy:
 
     lambda_R_proxy = |V_rot| / sqrt(V_rot^2 + sigma^2)
 
-This is useful for internal comparisons, but it should be labelled as a proxy in
-any paper or figure caption. If you later obtain projected particle/spaxel data,
-replace the proxy with the full lambda_R calculation.
+This is suitable for internal comparisons, but it should be labelled as a
+proxy in a paper/figure caption.
+
+Memory note
+-----------
+This version is designed to be lighter than the earlier draft:
+- it only loads the SOAP fields actually needed here;
+- it reads HDF5 rows in chunks instead of huge fancy-index selections;
+- it applies the mass/luminosity weighting switch consistently to all paired
+  kinematic quantities that have both versions available.
 
 Outputs
 -------
 - out_kinematics/matched_kinematics_table.csv
 - out_kinematics/kinematics_summary_by_mass_bin.csv
 - out_kinematics/kinematics_2d_mass_compactness_comparison.csv
-- out_kinematics/*.png diagnostic figures
-
-Dependencies
-------------
-- numpy, pandas, matplotlib, h5py
-- scipy (for KDTree)
-- your local common.py helper with read_group_data_colibre
+- out_kinematics/figs/*.png
 """
 from __future__ import annotations
 
@@ -50,13 +48,12 @@ import os
 import math
 import warnings
 from pathlib import Path
-from typing import Dict, Iterable, Tuple
+from typing import Dict, Iterable, Optional, Tuple
 
 import h5py
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from scipy.spatial import cKDTree as KDTree
 
 import common
 
@@ -70,16 +67,13 @@ plt.rcParams.update({
 CSV_IN = "sfh_times_all_with_DoR_variants_corrected.csv.gz"
 MODEL_NAME = "L0200N3008/THERMAL_AGN/"
 MODEL_DIR = "/mnt/su3-pro/colibre/" + MODEL_NAME
-SNAP_FILE = "0127"  # z=0
+SNAP_FILE = "0127"  # z = 0
 EXTRA_H5 = os.path.join(MODEL_DIR, "SOAP-HBT", "extra", f"halo_properties_{SNAP_FILE}.hdf5")
 EXSITU_H5 = "/mnt/su3ctm/kproctor/ForMax/exsitu_summary_SnapNum_127.hdf5"  # optional
 OUTDIR = "out_kinematics"
 
-# Your existing compactness cut from the relic work
 COMPACTNESS_CUT = 9.72
 EXTREME_DOR = 0.60
-
-# Mass threshold for the analysis sample
 MIN_STELLAR_MASS = 1e9
 
 # Binning choices for the fixed-mass / fixed-compactness comparison
@@ -87,9 +81,11 @@ MASS_BIN_WIDTH = 0.25
 COMPACT_BIN_WIDTH = 0.20
 MIN_PER_BIN = 5
 
-# If you want luminosity-weighted kinematics instead of mass-weighted ones,
-# set USE_LUM_WEIGHTED = True.
-USE_LUM_WEIGHTED = False
+# Optional switch: use luminosity-weighted quantities where available.
+USE_LUM_WEIGHTED = True
+
+# Chunk size for HDF5 row reads (lower -> less peak RAM, higher -> faster)
+H5_CHUNK_SIZE = 20000
 
 # --------------------------- SMALL HELPERS -----------------------------
 def ensure_dir(path: str | Path) -> None:
@@ -106,14 +102,49 @@ def finite(x: np.ndarray) -> np.ndarray:
     return np.isfinite(np.asarray(x, dtype=float))
 
 
+def pick_key(base_key: str) -> str:
+    """Choose the mass- or luminosity-weighted dataset name when both exist."""
+    paired = {
+        "vrot": ("StellarRotationalVelocity", "StellarRotationalVelocityLuminosityWeighted"),
+        "sigma": ("StellarCylindricalVelocityDispersion", "StellarCylindricalVelocityDispersionLuminosityWeighted"),
+        "kappa": ("KappaCorotStars", "KappaCorotStarsLuminosityWeighted"),
+        "d2t": ("DiscToTotalStellarMassFraction", "DiscToTotalLuminosityRatioLuminosityWeighted"),
+        "angmom": ("AngularMomentumStars", "AngularMomentumStarsLuminosityWeighted"),
+        "inertia": ("StellarInertiaTensorReduced", "StellarInertiaTensorReducedLuminosityWeighted"),
+    }
+    if base_key not in paired:
+        raise KeyError(f"Unknown paired key: {base_key}")
+    mass_key, lum_key = paired[base_key]
+    return lum_key if USE_LUM_WEIGHTED else mass_key
+
+
+def read_rows_chunked(ds: h5py.Dataset, row_idx: np.ndarray, chunk_size: int = H5_CHUNK_SIZE) -> np.ndarray:
+    """Read selected rows in chunks to reduce peak memory and HDF5 fancy-index overhead."""
+    idx = np.asarray(row_idx, dtype=np.int64)
+    if idx.size == 0:
+        return np.asarray(ds[idx])
+
+    # Sorting the indices makes the HDF5 access pattern cheaper.
+    order = np.argsort(idx)
+    sorted_idx = idx[order]
+
+    chunks = []
+    for start in range(0, sorted_idx.size, chunk_size):
+        chunk = sorted_idx[start:start + chunk_size]
+        chunks.append(np.asarray(ds[chunk]))
+
+    arr_sorted = np.concatenate(chunks, axis=0)
+    inv = np.empty_like(order)
+    inv[order] = np.arange(order.size)
+    return arr_sorted[inv]
+
+
 def as_scalar_velocity(arr: np.ndarray) -> np.ndarray:
     """Return a scalar rotational velocity from a flexible HDF5 array."""
     a = np.asarray(arr, dtype=float)
     if a.ndim == 1:
         return np.abs(a)
     if a.ndim == 2:
-        # If a vector is stored, use its norm; if multiple components are stored,
-        # this still returns a non-negative scalar support measure.
         return np.linalg.norm(a, axis=1)
     raise ValueError(f"Unsupported velocity array shape: {a.shape}")
 
@@ -134,11 +165,10 @@ def as_scalar_sigma(arr: np.ndarray) -> np.ndarray:
     if a.ndim != 2:
         raise ValueError(f"Unsupported dispersion array shape: {a.shape}")
 
-    n, k = a.shape
+    _, k = a.shape
     if k == 3:
         return np.sqrt(np.nanmean(a**2, axis=1))
     if k == 6:
-        # common symmetric packing: xx, xy, xz, yy, yz, zz
         diag = np.column_stack([a[:, 0], a[:, 3], a[:, 5]])
         return np.sqrt(np.nanmean(diag**2, axis=1))
     if k == 9:
@@ -157,41 +187,11 @@ def estimate_lambda_r_proxy(vrot: np.ndarray, sigma: np.ndarray) -> np.ndarray:
     return out
 
 
-def load_h5_row_aligned_dataset(h5f: h5py.File, candidates: Iterable[str], row_idx: np.ndarray) -> np.ndarray:
-    """Try candidate dataset paths and return the first available one, row-selected."""
-    last_err = None
+def load_optional_dataset(h5f: h5py.File, candidates: Iterable[str], row_idx: np.ndarray) -> Optional[np.ndarray]:
     for key in candidates:
-        try:
-            ds = h5f[key]
-            arr = np.asarray(ds[row_idx])
-            return arr
-        except Exception as e:
-            last_err = e
-            continue
-    raise KeyError(f"None of these datasets were found/read: {list(candidates)}; last error: {last_err}")
-
-
-def load_h5_optional_row_aligned_dataset(h5f: h5py.File, candidates: Iterable[str], row_idx: np.ndarray, fill_value=np.nan) -> np.ndarray:
-    try:
-        return load_h5_row_aligned_dataset(h5f, candidates, row_idx)
-    except Exception:
-        return None
-
-
-def loess_like_2d_binned_summary(x: np.ndarray, y: np.ndarray, z: np.ndarray, xbins: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Simple percentile-bin median + 16/84 summary for 1D plots."""
-    xc = 0.5 * (xbins[:-1] + xbins[1:])
-    med = np.full_like(xc, np.nan, dtype=float)
-    lo = np.full_like(xc, np.nan, dtype=float)
-    hi = np.full_like(xc, np.nan, dtype=float)
-    ok = finite(x) & finite(y) & finite(z)
-    for i in range(len(xc)):
-        sel = ok & (x >= xbins[i]) & (x < xbins[i + 1])
-        if np.sum(sel) >= MIN_PER_BIN:
-            med[i] = np.nanmedian(z[sel])
-            lo[i] = np.nanpercentile(z[sel], 16)
-            hi[i] = np.nanpercentile(z[sel], 84)
-    return xc, med, lo, hi
+        if key in h5f:
+            return read_rows_chunked(h5f[key], row_idx)
+    return None
 
 
 def plot_binned_median(ax, x, y, nbins=14, label=None, color="black"):
@@ -221,16 +221,18 @@ def scatter_with_colour(ax, x, y, c, cmap="viridis", s=12, alpha=0.85, vmin=None
     ok = finite(x) & finite(y) & finite(c)
     if np.sum(ok) == 0:
         return None
-    sc = ax.scatter(x[ok], y[ok], c=c[ok], cmap=cmap, s=s, alpha=alpha, edgecolors="none",
-                    vmin=vmin, vmax=vmax)
-    return sc
+    return ax.scatter(x[ok], y[ok], c=c[ok], cmap=cmap, s=s, alpha=alpha,
+                      edgecolors="none", vmin=vmin, vmax=vmax)
 
 
-def compute_2d_bin_table(df: pd.DataFrame, value_col: str, group_col: str, mass_col: str = "logM", compact_col: str = "compactness") -> pd.DataFrame:
-    """Return a 2D (mass, compactness) bin table split by group_col values.
-
-    The group_col is typically relic_flag or central_flag.
-    """
+def compute_2d_bin_table(
+    df: pd.DataFrame,
+    value_col: str,
+    group_col: str,
+    mass_col: str = "logM",
+    compact_col: str = "compactness",
+) -> pd.DataFrame:
+    """Return a 2D (mass, compactness) bin table split by group_col values."""
     work = df[[mass_col, compact_col, value_col, group_col]].copy()
     ok = work[mass_col].notna() & work[compact_col].notna() & work[value_col].notna() & work[group_col].notna()
     work = work.loc[ok].copy()
@@ -255,8 +257,12 @@ def compute_2d_bin_table(df: pd.DataFrame, value_col: str, group_col: str, mass_
             if np.sum(sel_bin) < MIN_PER_BIN:
                 continue
             row = {
-                "mass_lo": mbins[i], "mass_hi": mbins[i + 1], "mass_center": 0.5 * (mbins[i] + mbins[i + 1]),
-                "compact_lo": cbins[j], "compact_hi": cbins[j + 1], "compact_center": 0.5 * (cbins[j] + cbins[j + 1]),
+                "mass_lo": mbins[i],
+                "mass_hi": mbins[i + 1],
+                "mass_center": 0.5 * (mbins[i] + mbins[i + 1]),
+                "compact_lo": cbins[j],
+                "compact_hi": cbins[j + 1],
+                "compact_center": 0.5 * (cbins[j] + cbins[j + 1]),
                 "n_total": int(np.sum(sel_bin)),
             }
             for g in groups:
@@ -270,10 +276,11 @@ def compute_2d_bin_table(df: pd.DataFrame, value_col: str, group_col: str, mass_
     return pd.DataFrame(rows)
 
 
-# -------------------------- READ INPUTS --------------------------------
+# -------------------------- MAIN --------------------------------------
 def main() -> None:
     ensure_dir(OUTDIR)
-    ensure_dir(Path(OUTDIR) / "figs")
+    figdir = Path(OUTDIR) / "figs"
+    ensure_dir(figdir)
 
     if not os.path.exists(CSV_IN):
         raise SystemExit(f"CSV not found: {CSV_IN}")
@@ -311,39 +318,27 @@ def main() -> None:
     primary_dor_col = dor_cols[0]
     print("Primary DoR column:", primary_dor_col)
 
-    # SOAP fields
+    # Minimal SOAP fields needed for this question.
     print("Reading SOAP group data...")
     fields = {
-        "ExclusiveSphere/50kpc": (
-            "StellarMass", "HalfMassRadiusStars", "StarFormationRate",
-            "MassWeightedMeanStellarAge", "LuminosityWeightedMeanStellarAge",
-            "LinearMassWeightedIronOverHydrogenOfStars",
-            "LinearMassWeightedMagnesiumOverHydrogenOfStars",
-            "MostMassiveBlackHoleMass", "StellarMassFractionInMetals",
-        ),
-        "InputHalos": ("HaloCatalogueIndex", "IsCentral", "HBTplus/DescendantTrackId", "HBTplus/TrackId"),
-        "SOAP": ("HostHaloIndex",),
+        "ExclusiveSphere/50kpc": ("StellarMass", "HalfMassRadiusStars"),
+        "InputHalos": ("HaloCatalogueIndex", "IsCentral", "HBTplus/TrackId"),
     }
     h5data = common.read_group_data_colibre(MODEL_DIR, SNAP_FILE, fields)
-    (m30, r50, sfr30, age_mass, age_lum, fe_lin, mg_lin, bh_mass_raw, zstar_raw, halo_idx, is_central, desc_id, track_id, host_halo_index) = h5data
+    m30, r50, halo_idx, is_central, track_id = h5data
 
-    # units and basic derived quantities
+    # Units and basic derived quantities
     Mu = 1.988e43 / 1.989e33
-    tu = 3.086e19 / 3.154e7
     m30 = np.asarray(m30, dtype=float) * Mu
-    r50 = np.asarray(r50, dtype=float) * 1e3  # z=0 so no comoving-to-physical factor
-    sfr30 = np.asarray(sfr30, dtype=float) * Mu / tu
-    bh_mass_raw = np.asarray(bh_mass_raw, dtype=float) * Mu
+    r50 = np.asarray(r50, dtype=float) * 1e3  # z=0; physical kpc
     halo_idx = np.asarray(halo_idx, dtype=np.int64)
     track_id = np.asarray(track_id, dtype=np.int64)
     is_central = np.asarray(is_central)
 
-    # Select galaxies used in the relic work
     mask_sel = (m30 >= MIN_STELLAR_MASS) & (m30 > 0) & (r50 > 0) & np.isfinite(m30) & np.isfinite(r50)
     row_idx = np.flatnonzero(mask_sel)
     print(f"Selected SOAP galaxies for kinematics: {len(row_idx)}")
 
-    # selected arrays aligned to the extra HDF5 rows we will read
     m_sel = m30[mask_sel]
     r_sel = r50[mask_sel]
     halo_sel = halo_idx[mask_sel]
@@ -354,13 +349,13 @@ def main() -> None:
     logR = np.log10(r_sel)
     compactness = logM - 1.5 * logR
 
-    # DoR aligned to selected SOAP rows by HaloCatalogueIndex
+    # Match DoR by HaloCatalogueIndex
     dor_series = pd.Series(df_ucmg[primary_dor_col].astype(float).to_numpy(), index=df_ucmg["subhalo_id"].to_numpy(dtype=np.int64))
     dor_selected = dor_series.reindex(halo_sel.astype(np.int64)).to_numpy(dtype=float)
     matched_positions = np.where(np.isfinite(dor_selected))[0]
     print(f"Matched UCMG CSV -> selected SOAP rows: {len(matched_positions)}")
 
-    # ex-situ lookup (optional)
+    # Optional ex-situ lookup
     exsitu_lookup: Dict[int, float] = {}
     if os.path.exists(EXSITU_H5):
         try:
@@ -368,7 +363,6 @@ def main() -> None:
                 if "stars" in fh:
                     data = np.asarray(fh["stars"])
                     if data.ndim == 2 and data.shape[1] >= 4:
-                        # pick the ID column with the best overlap with halo indices
                         overlaps = []
                         for c in (0, 1, 2):
                             try:
@@ -394,32 +388,27 @@ def main() -> None:
     with h5py.File(EXTRA_H5, "r") as fh:
         grp = fh["/ExclusiveSphere/HalfMassRadiusStars"]
 
-        # Always read these two if available
-        vrot_key = "StellarRotationalVelocityLuminosityWeighted" if USE_LUM_WEIGHTED else "StellarRotationalVelocity"
-        sig_key = "StellarCylindricalVelocityDispersionLuminosityWeighted" if USE_LUM_WEIGHTED else "StellarCylindricalVelocityDispersion"
-        kappa_key = "KappaCorotStarsLuminosityWeighted" if USE_LUM_WEIGHTED else "KappaCorotStars"
-        d2t_key = "DiscToTotalMassRatioLuminosityWeighted" if USE_LUM_WEIGHTED else "DiscToTotalStellarMassFraction"
-        if USE_LUM_WEIGHTED:
-            d2t_key = "DiscToTotalLuminosityRatioLuminosityWeighted"
+        vrot_key = pick_key("vrot")
+        sig_key = pick_key("sigma")
+        kappa_key = pick_key("kappa")
+        d2t_key = pick_key("d2t")
+        angmom_key = pick_key("angmom")
+        inertia_key = pick_key("inertia")
 
-        vrot_raw = np.asarray(grp[vrot_key][row_idx])
-        sig_raw = np.asarray(grp[sig_key][row_idx])
-        kappa_raw = np.asarray(grp[kappa_key][row_idx]) if kappa_key in grp else None
-        d2t_raw = np.asarray(grp[d2t_key][row_idx]) if d2t_key in grp else None
+        if vrot_key not in grp:
+            raise KeyError(f"Missing dataset: {vrot_key}")
+        if sig_key not in grp:
+            raise KeyError(f"Missing dataset: {sig_key}")
 
-        # Optional extras
-        angmom_raw = np.asarray(grp["AngularMomentumStarsLuminosityWeighted" if USE_LUM_WEIGHTED and "AngularMomentumStarsLuminosityWeighted" in grp else "AngularMomentumStars"][row_idx]) if ("AngularMomentumStars" in grp or "AngularMomentumStarsLuminosityWeighted" in grp) else None
-        inertia_raw = None
-        for k in ("StellarInertiaTensorReducedLuminosityWeighted" if USE_LUM_WEIGHTED else "StellarInertiaTensorReduced",
-                  "StellarInertiaTensorLuminosityWeighted" if USE_LUM_WEIGHTED else "StellarInertiaTensor"):
-            if k in grp:
-                inertia_raw = np.asarray(grp[k][row_idx])
-                inertia_key = k
-                break
-        else:
-            inertia_key = None
+        # Read only what we need for the analysis, in chunks.
+        vrot_raw = read_rows_chunked(grp[vrot_key], row_idx)
+        sig_raw = read_rows_chunked(grp[sig_key], row_idx)
+        kappa_raw = load_optional_dataset(grp, [kappa_key], row_idx)
+        d2t_raw = load_optional_dataset(grp, [d2t_key], row_idx)
+        angmom_raw = load_optional_dataset(grp, [angmom_key], row_idx)
+        inertia_raw = load_optional_dataset(grp, [inertia_key], row_idx)
 
-        # scalar support measures
+        # Convert to scalar support measures.
         vrot = as_scalar_velocity(vrot_raw)
         sigma = as_scalar_sigma(sig_raw)
         v_over_sigma = np.full_like(vrot, np.nan, dtype=float)
@@ -427,18 +416,23 @@ def main() -> None:
         v_over_sigma[ok_vs] = vrot[ok_vs] / sigma[ok_vs]
         lambda_proxy = estimate_lambda_r_proxy(vrot, sigma)
 
-        # these may already be scalar arrays
         kappa = np.asarray(kappa_raw, dtype=float).reshape(-1) if kappa_raw is not None else np.full_like(vrot, np.nan, dtype=float)
         d2t = np.asarray(d2t_raw, dtype=float).reshape(-1) if d2t_raw is not None else np.full_like(vrot, np.nan, dtype=float)
 
-        # A 3D flattening proxy from the inertia tensor if possible
+        angmom_norm = np.full_like(vrot, np.nan, dtype=float)
+        if angmom_raw is not None:
+            a = np.asarray(angmom_raw, dtype=float)
+            if a.ndim == 1:
+                angmom_norm = np.abs(a)
+            elif a.ndim == 2:
+                angmom_norm = np.linalg.norm(a, axis=1)
+
         flattening_3d = np.full_like(vrot, np.nan, dtype=float)
         if inertia_raw is not None:
             arr = np.asarray(inertia_raw, dtype=float)
             try:
                 if arr.ndim == 2 and arr.shape[1] in (3, 6, 9):
                     if arr.shape[1] == 3:
-                        # treat as axis moments
                         vals = np.sort(np.abs(arr), axis=1)
                         c = np.maximum(vals[:, 0], 1e-12)
                         a = np.maximum(vals[:, 2], 1e-12)
@@ -462,13 +456,14 @@ def main() -> None:
             except Exception:
                 pass
 
-    # align kinematics to the matched subset of selected SOAP rows
+    # Align kinematics to the matched subset of selected SOAP rows
     vrot_m = vrot[matched_positions]
     sigma_m = sigma[matched_positions]
     vos_m = v_over_sigma[matched_positions]
     lambda_proxy_m = lambda_proxy[matched_positions]
     kappa_m = kappa[matched_positions]
     d2t_m = d2t[matched_positions]
+    angmom_m = angmom_norm[matched_positions]
     flatten_m = flattening_3d[matched_positions]
     exsitu_m = exsitu_selected[matched_positions]
     dor_m = dor_selected[matched_positions]
@@ -479,7 +474,13 @@ def main() -> None:
     halo_m = halo_sel[matched_positions]
     cen_m = np.asarray(cen_sel[matched_positions]).astype(bool)
 
-    # Build the matched kinematic table
+    # Population flags based on your working definitions
+    ancient_m = dor_m > EXTREME_DOR
+    relic_m = ancient_m & (compact_m > COMPACTNESS_CUT)
+    sag_m = ancient_m & (~relic_m)
+    compact_nonancient_m = (~ancient_m) & (compact_m > COMPACTNESS_CUT)
+    noncompact_nonancient_m = (~ancient_m) & (compact_m <= COMPACTNESS_CUT)
+
     matched = pd.DataFrame({
         "subhalo_id": halo_m.astype(np.int64),
         "track_id": track_m.astype(np.int64),
@@ -488,13 +489,18 @@ def main() -> None:
         "compactness": compact_m,
         "DoR": dor_m,
         "is_central": cen_m,
-        "is_relic": dor_m > EXTREME_DOR,
+        "is_ancient": ancient_m,
+        "is_relic": relic_m,
+        "is_sag": sag_m,
+        "is_compact_nonancient": compact_nonancient_m,
+        "is_noncompact_nonancient": noncompact_nonancient_m,
         "v_rot": vrot_m,
         "sigma": sigma_m,
         "v_over_sigma": vos_m,
         "lambda_R_proxy": lambda_proxy_m,
         "kappa_corot": kappa_m,
         "disc_to_total": d2t_m,
+        "angular_momentum_norm": angmom_m,
         "flattening_3d_proxy": flatten_m,
         "exsitu_frac": exsitu_m,
     })
@@ -503,21 +509,19 @@ def main() -> None:
     matched.to_csv(matched_csv, index=False)
     print("Saved:", matched_csv)
 
-    # Basic diagnostics
     n_all = len(matched)
+    n_ancient = int(matched["is_ancient"].sum())
     n_relic = int(matched["is_relic"].sum())
-    print(f"Matched sample: {n_all} galaxies; relics: {n_relic}; non-relics: {n_all - n_relic}")
+    n_sag = int(matched["is_sag"].sum())
+    print(f"Matched sample: {n_all} galaxies; ancient: {n_ancient}; relics: {n_relic}; SAGs: {n_sag}; non-ancient: {n_all - n_ancient}")
     print("Median v/sigma (all):", float(np.nanmedian(matched["v_over_sigma"])))
     print("Median lambda_R_proxy (all):", float(np.nanmedian(matched["lambda_R_proxy"])))
     print("Median kappa_corot (all):", float(np.nanmedian(matched["kappa_corot"])))
 
     # --------------------------- FIGURES ------------------------------
-    figdir = Path(OUTDIR) / "figs"
-    ensure_dir(figdir)
-
     # 1) Mass-size coloured by v/sigma
     fig, ax = plt.subplots(figsize=(8, 6))
-    bg = ax.scatter(logM, logR, s=6, color="lightgrey", alpha=0.35, label="selected SOAP galaxies")
+    ax.scatter(logM, logR, s=6, color="lightgrey", alpha=0.35, label="selected SOAP galaxies")
     sc = scatter_with_colour(ax, logM_m, logR_m, vos_m, cmap="viridis", s=18, alpha=0.9)
     if sc is not None:
         cbar = fig.colorbar(sc, ax=ax)
@@ -588,7 +592,7 @@ def main() -> None:
     ax.legend(fontsize=8)
     save_fig(fig, figdir / "kappa_corot_vs_mass.png")
 
-    # 6) Compare relics vs non-relics at fixed mass + compactness (2D bin table)
+    # 6) Compare relics vs non-relics at fixed mass + compactness
     compare = matched.copy()
     compare["relic_flag"] = np.where(compare["is_relic"], "relic", "nonrelic")
     table_2d = compute_2d_bin_table(compare, value_col="v_over_sigma", group_col="relic_flag")
@@ -597,7 +601,6 @@ def main() -> None:
         table_2d.to_csv(table_2d_csv, index=False)
         print("Saved:", table_2d_csv)
 
-        # heatmap of delta median v/sigma (relic - nonrelic)
         if "delta_med" in table_2d.columns and table_2d["delta_med"].notna().any():
             pivot = table_2d.pivot(index="compact_center", columns="mass_center", values="delta_med")
             fig, ax = plt.subplots(figsize=(9, 6))
@@ -623,21 +626,39 @@ def main() -> None:
     panels = [
         (axes[0], "is_central", "Central", {True: "C0", False: "C3"}),
         (axes[1], "is_relic", "Relic", {True: "C1", False: "0.5"}),
-        (axes[2], "relic_flag", "Ex-situ fraction", None),
+        (axes[2], "exsitu", "Ex-situ fraction", None),
     ]
     for ax, flagcol, title, colors in panels:
-        if flagcol == "relic_flag":
+        if flagcol == "exsitu":
             sc = scatter_with_colour(ax, compact_m, vos_m, exsitu_m, cmap="viridis", s=18, alpha=0.85)
             if sc is not None:
                 cbar = fig.colorbar(sc, ax=ax)
                 cbar.set_label(r"$f_{\rm ex-situ}$")
             ax.set_title("Rotation support coloured by ex-situ fraction")
         else:
-            for state, col in colors.items():
+            # plot background class first, foreground class second
+            if flagcol == "is_central":
+                order = [False, True]   # satellites behind, centrals in front
+            elif flagcol == "is_relic":
+                order = [False, True]   # non-relics behind, relics in front
+            else:
+                order = [False, True]
+            for state in order:
+                col = colors[state]
                 sel = compare[flagcol].to_numpy() == state
-                ax.scatter(compact_m[sel], vos_m[sel], s=16, alpha=0.75, color=col, label=f"{title.lower()}={state}")
+                ax.scatter(
+                    compact_m[sel],
+                    vos_m[sel],
+                    s=16,
+                    alpha=0.75,
+                    color=col,
+                    label=f"{title.lower()}={state}",
+                    zorder=2 if state else 1,
+                )
+
             ax.legend(fontsize=8)
             ax.set_title(f"{title} split")
+
         ax.axvline(COMPACTNESS_CUT, ls="--", lw=1.2, color="black")
         ax.axhline(1.0, ls="--", lw=1.0, color="black")
         ax.set_xlabel("Compactness")
@@ -647,13 +668,16 @@ def main() -> None:
 
     # 8) Distribution summary for the core comparison
     fig, ax = plt.subplots(figsize=(8, 5))
+    sel_ancient = compare["is_ancient"].to_numpy()
     sel_relic = compare["is_relic"].to_numpy()
-    sel_compact = compare["compactness"].to_numpy() >= COMPACTNESS_CUT
+    sel_sag = compare["is_sag"].to_numpy()
+    sel_compact_nonancient = compare["is_compact_nonancient"].to_numpy()
+    sel_noncompact_nonancient = compare["is_noncompact_nonancient"].to_numpy()
     groups = {
-        "relic compact": sel_relic & sel_compact,
-        "relic diffuse": sel_relic & (~sel_compact),
-        "non-relic compact": (~sel_relic) & sel_compact,
-        "non-relic diffuse": (~sel_relic) & (~sel_compact),
+        "relics (ancient + compact)": sel_relic,
+        "SAGs (ancient + non-compact)": sel_sag,
+        "compact non-ancients": sel_compact_nonancient,
+        "non-compact non-ancients": sel_noncompact_nonancient,
     }
     for lab, sel in groups.items():
         vals = compare.loc[sel, "v_over_sigma"].to_numpy()
@@ -667,7 +691,6 @@ def main() -> None:
     save_fig(fig, figdir / "v_over_sigma_group_distributions.png")
 
     # -------------------------- BIN SUMMARY ---------------------------
-    # Mass-binned summary, split by relic / non-relic and central / satellite
     rows = []
     mass_bins = np.arange(
         math.floor(np.nanmin(logM_m) / MASS_BIN_WIDTH) * MASS_BIN_WIDTH,
@@ -684,7 +707,9 @@ def main() -> None:
                 "mass_hi": mass_bins[i + 1],
                 "mass_center": 0.5 * (mass_bins[i] + mass_bins[i + 1]),
                 "n_total": int(np.sum(sel_mass)),
-                "n_relic": int(np.sum(sel_mass & sel_relic)),
+                "n_ancient": int(np.sum(sel_mass & ancient_m)),
+                "n_relic": int(np.sum(sel_mass & relic_m)),
+                "n_sag": int(np.sum(sel_mass & sag_m)),
                 "n_nonrelic": int(np.sum(sel_mass & (~sel_relic))),
                 "n_central": int(np.sum(sel_mass & cen_m)),
                 "n_satellite": int(np.sum(sel_mass & (~cen_m))),
@@ -695,6 +720,7 @@ def main() -> None:
                 "kappa_corot": kappa_m,
                 "exsitu_frac": exsitu_m,
                 "compactness": compact_m,
+                "disc_to_total": d2t_m,
             }.items():
                 vals = arr[sel_mass]
                 vals = vals[np.isfinite(vals)]
@@ -702,7 +728,6 @@ def main() -> None:
                     row[f"{name}_median"] = float(np.nanmedian(vals))
                     row[f"{name}_p16"] = float(np.nanpercentile(vals, 16))
                     row[f"{name}_p84"] = float(np.nanpercentile(vals, 84))
-            # split by relic / non-relic for v/sigma
             for grp_name, grp_sel in {"relic": sel_mass & sel_relic, "nonrelic": sel_mass & (~sel_relic)}.items():
                 vals = vos_m[grp_sel]
                 vals = vals[np.isfinite(vals)]
@@ -738,9 +763,8 @@ def main() -> None:
         ax.legend(fontsize=8)
         save_fig(fig, figdir / "mass_binned_relic_vs_nonrelic_v_over_sigma.png")
 
-    # --------------------------- PRINT ANSWER -------------------------
-    # These lines are the simple, interpretable summary you can quote in your notes.
-    def summarize_mask(mask: np.ndarray, label: str):
+    # --------------------------- PRINT SUMMARY ------------------------
+    def summarize_mask(mask: np.ndarray, label: str) -> str:
         vals = matched.loc[mask, "v_over_sigma"].to_numpy()
         vals = vals[np.isfinite(vals)]
         if len(vals) == 0:
@@ -753,19 +777,17 @@ def main() -> None:
 
     print("\nCore descriptive summary")
     print("------------------------")
-    print(summarize_mask(matched["is_relic"].to_numpy() & (matched["compactness"].to_numpy() >= COMPACTNESS_CUT), "relic + compact"))
-    print(summarize_mask(matched["is_relic"].to_numpy() & (matched["compactness"].to_numpy() < COMPACTNESS_CUT), "relic + diffuse"))
-    print(summarize_mask((~matched["is_relic"].to_numpy()) & (matched["compactness"].to_numpy() >= COMPACTNESS_CUT), "non-relic + compact"))
-    print(summarize_mask((~matched["is_relic"].to_numpy()) & (matched["compactness"].to_numpy() < COMPACTNESS_CUT), "non-relic + diffuse"))
+    print(summarize_mask(matched["is_relic"].to_numpy(), "true relics (ancient + compact)"))
+    print(summarize_mask(matched["is_sag"].to_numpy(), "SAGs (ancient + non-compact)"))
+    print(summarize_mask(matched["is_compact_nonancient"].to_numpy(), "compact non-ancients"))
+    print(summarize_mask(matched["is_noncompact_nonancient"].to_numpy(), "non-compact non-ancients"))
 
-    # central/satellite split among relics
     relic_mask = matched["is_relic"].to_numpy()
     print("\nCentral / satellite among relics")
     print("--------------------------------")
     print(summarize_mask(relic_mask & matched["is_central"].to_numpy(), "relic centrals"))
     print(summarize_mask(relic_mask & (~matched["is_central"].to_numpy()), "relic satellites"))
 
-    # ex-situ split (median only)
     ex = matched["exsitu_frac"].to_numpy()
     finite_ex = finite(ex)
     if np.any(finite_ex):

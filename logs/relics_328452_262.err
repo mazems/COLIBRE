@@ -1,0 +1,21 @@
+Traceback (most recent call last):
+  File "/home/mzemsch/COLIBRE-analysis/images_SRGs.py", line 14, in <module>
+    from swiftsimio import SWIFTDataset
+  File "/home/mzemsch/miniconda3/envs/swift-conda/lib/python3.10/site-packages/swiftsimio/__init__.py", line 30, in <module>
+    import swiftsimio.visualisation as visualisation
+  File "/home/mzemsch/miniconda3/envs/swift-conda/lib/python3.10/site-packages/swiftsimio/visualisation/__init__.py", line 3, in <module>
+    from .projection import project_gas, project_pixel_grid
+  File "/home/mzemsch/miniconda3/envs/swift-conda/lib/python3.10/site-packages/swiftsimio/visualisation/projection.py", line 7, in <module>
+    from swiftsimio.visualisation.projection_backends import backends, backends_parallel
+  File "/home/mzemsch/miniconda3/envs/swift-conda/lib/python3.10/site-packages/swiftsimio/visualisation/projection_backends/__init__.py", line 45, in <module>
+    from swiftsimio.visualisation.projection_backends.gpu import scatter as gpu
+  File "/home/mzemsch/miniconda3/envs/swift-conda/lib/python3.10/site-packages/swiftsimio/visualisation/projection_backends/gpu.py", line 15, in <module>
+    def kernel(r: np.float32, H: np.float32) -> np.float32:
+  File "/home/mzemsch/miniconda3/envs/swift-conda/lib/python3.10/site-packages/numba/cuda/decorators.py", line 125, in _jit
+    argtypes, restype = sigutils.normalize_signature(sig)
+  File "/home/mzemsch/miniconda3/envs/swift-conda/lib/python3.10/site-packages/numba/core/sigutils.py", line 29, in normalize_signature
+    parsed = _parse_signature_string(sig)
+  File "/home/mzemsch/miniconda3/envs/swift-conda/lib/python3.10/site-packages/numba/core/sigutils.py", line 19, in _parse_signature_string
+    return eval(signature_str, {}, types.__dict__)
+  File "<string>", line 1, in <module>
+TypeError: function takes at most 1 argument (2 given)

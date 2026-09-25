@@ -1,0 +1,2 @@
+z=2 central fraction among z=0 extreme relics with valid IsCentral: 0.510204
+N with valid IsCentral: 490

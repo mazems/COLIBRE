@@ -1,0 +1,14 @@
+Using PARTRIDGE at: /home/mzemsch/COLIBRE-analysis/PARTRIDGE
+Found 267 relic IDs in z0_relics_trackids.csv using column 'track_id'
+[1/1] Rendering halo 1977002
+Calculating stellar luminosities from FSPS tables.
+Luminosity generation for all bands done. Time taken: 6.239 s (read-in time: 5.764 s).
+Loaded in and pre-processed the data. Total pre-processing time taken: 99.517 s.
+Generated star smoothing lengths. Time taken: 2.793 s.
+Rendered the stars onto the grid. Time taken: 263.731 s.
+Rendered the dust onto the grid. Time taken: 150.107 s.
+Computed the projected luminosity maps. Total time taken: 420.482 s.
+Created the RGB image.
+Created the RGB image.
+Done! Total time taken: 522.861 s.
+Done.

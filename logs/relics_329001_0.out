@@ -1,0 +1,15 @@
+Task 0: rendering galaxies 0 to 9
+Using PARTRIDGE at: /home/mzemsch/COLIBRE-analysis/PARTRIDGE
+Found 267 relic IDs in z0_relics_trackids.csv using column 'track_id'
+Rendering IDs in range [0, 10) -> 10 galaxies
+[1/10] Halo 775921 already rendered, skipping.
+[2/10] Halo 809503 already rendered, skipping.
+[3/10] Halo 25311 already rendered, skipping.
+[4/10] Halo 83700 already rendered, skipping.
+[5/10] Halo 2860534 already rendered, skipping.
+[6/10] Halo 8002 already rendered, skipping.
+[7/10] Halo 1874277 already rendered, skipping.
+[8/10] Halo 17066 already rendered, skipping.
+[9/10] Halo 552 already rendered, skipping.
+[10/10] Halo 553 already rendered, skipping.
+Done.
