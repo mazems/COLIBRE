@@ -1,0 +1,15 @@
+{
+  "n_epochs": 22,
+  "n_observed_track_rows": 4738,
+  "n_reference_targets": 267,
+  "n_targets_never_seen": 0,
+  "n_targets_seen_at_least_once": 267,
+  "note": "Only observed TrackID matches are included. Missing entries are not interpreted as physical disappearance. Snapshot numbers and units are not inferred.",
+  "population_counts": {
+    "SRG": 267
+  },
+  "redshift_max": 10.0,
+  "redshift_min": 0.0,
+  "source": "ASCII",
+  "tracking_method": "HBT_TrackID"
+}

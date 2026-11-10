@@ -1,0 +1,21 @@
+{
+  "snapshot": 127,
+  "soap_rows": 91142867,
+  "soap_eligible": 129850,
+  "dor_rows": 129850,
+  "eligible_with_dor": 129850,
+  "eligible_without_dor": 0,
+  "population_counts": {
+    "noncompact_nonrelic": 116570,
+    "compact_nonrelic": 12790,
+    "SRG": 267,
+    "SAG_noncompact": 223
+  },
+  "sag_all": 490,
+  "dor_column": "DoR_t95",
+  "mass_factor": 9994972347.913525,
+  "radius_factor": 1000.0,
+  "conversion_status": "legacy_paper1_unverified_units",
+  "reference_soap_path": "/mnt/su3-pro/colibre/L0200N3008/THERMAL_AGN/SOAP-HBT/halo_properties_0127.hdf5",
+  "dor_path": "../sfh_times_all_with_DoR_variants_corrected.csv.gz"
+}

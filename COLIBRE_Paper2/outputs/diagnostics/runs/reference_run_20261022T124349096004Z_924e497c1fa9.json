@@ -1,0 +1,131 @@
+{
+  "configuration": {
+    "DATA_SOURCES": {
+      "allow_automatic_fallback": false,
+      "evolution": "ASCII",
+      "record_provenance": true,
+      "reference": "SOAP-HBT",
+      "require_overlap_validation_before_mixing": true,
+      "soap_is_authoritative": true
+    },
+    "DEVELOPMENT": {
+      "random_seed": 42,
+      "strict_input_validation": true,
+      "test_mode": false,
+      "test_sample_size": 20
+    },
+    "INPUTS": {
+      "ascii_dir": "/mnt/su3-pro/clagos/COLIBRE/Runs/L200_m6/Thermal/ProcessedData",
+      "ascii_glob": "GalaxyProperties_SFR_GE_0_z*.txt",
+      "bh_correction_csv": "corrected_bh_mass_lookup.csv",
+      "dor_sfh_csv": "../sfh_times_all_with_DoR_variants_corrected.csv.gz",
+      "exsitu_z0_hdf5": "/mnt/su3ctm/kproctor/ForMax/exsitu_summary_SnapNum_127.hdf5",
+      "snapshot_redshift_table": null,
+      "soap_dir": "/mnt/su3-pro/colibre/L0200N3008/THERMAL_AGN/SOAP-HBT",
+      "soap_filename_pattern": "halo_properties_{snapshot:04d}.hdf5"
+    },
+    "OUTPUT": {
+      "diagnostics_dir": "outputs/diagnostics",
+      "figures_dir": "outputs/figures",
+      "logs_dir": "logs",
+      "overwrite": false,
+      "reference_dir": "outputs/reference_catalogues",
+      "root": "outputs",
+      "save_configuration": true,
+      "table_format": "csv",
+      "tracks_dir": "outputs/tracks"
+    },
+    "PIPELINE": {
+      "analyse_formation": false,
+      "build_reference_sample": true,
+      "build_track_identities": false,
+      "construct_matched_controls": false,
+      "extract_evolution_properties": false,
+      "identify_red_nuggets": false,
+      "make_diagnostic_plots": false
+    },
+    "PROPERTIES": {
+      "derived": [
+        "ssfr_instant",
+        "log10_stellar_mass",
+        "log10_rhalf",
+        "compactness_sigma_1p5"
+      ],
+      "preserve_raw_values": true,
+      "preserve_zero_sfr": true,
+      "requested": [
+        "stellar_mass",
+        "rhalf_stars",
+        "sfr_instant",
+        "is_central",
+        "halo_catalogue_index",
+        "host_fof_halo_id",
+        "bh_mass"
+      ],
+      "ssfr_plot_floor_log10_per_year": -12.0
+    },
+    "REFERENCE_SAMPLE": {
+      "allowed_populations": [
+        "SRG",
+        "SAG_noncompact",
+        "SAG_all",
+        "compact_nonrelic"
+      ],
+      "compactness_exponent": 1.5,
+      "compactness_threshold": 9.75,
+      "dor_column": "DoR_t95",
+      "dor_comparison": ">",
+      "dor_threshold": 0.6,
+      "minimum_stellar_mass_msun": 1000000000.0,
+      "noncompact_sag_compactness_comparison": "<",
+      "populations": [
+        "SRG"
+      ],
+      "reference_source": "SOAP-HBT",
+      "require_positive_radius": true,
+      "srg_compactness_comparison": ">="
+    },
+    "SIMULATION": {
+      "model": "THERMAL_AGN",
+      "name": "L0200N3008",
+      "reference_redshift": 0.0,
+      "reference_snapshot": 127,
+      "root": "/mnt/su3-pro/colibre/L0200N3008/THERMAL_AGN"
+    },
+    "TRACKING": {
+      "duplicate_trackid_policy": "raise",
+      "method": "HBT_TrackID",
+      "missing_snapshot_policy": "report",
+      "redshift_max": 10.0,
+      "redshift_min": 0.0,
+      "retain_incomplete_tracks": true,
+      "selected_redshifts": null,
+      "snapshot_selection": "available_ascii"
+    },
+    "UNITS": {
+      "ascii_radius_to_physical_kpc": null,
+      "ascii_sfr_to_msun_per_year": null,
+      "ascii_stellar_mass_to_msun": null,
+      "soap_conversion_method": "verify_common_py_and_hdf5_metadata",
+      "target_radius": "physical_kpc",
+      "target_sfr": "Msun/yr",
+      "target_stellar_mass": "Msun"
+    }
+  },
+  "configuration_sha256_prefix": "924e497c1fa9",
+  "created_utc": "2026-10-22T12:43:49.096407+00:00",
+  "note": "Reference units follow legacy Paper 1 conventions; physical units not independently verified.",
+  "reference_catalogue": "/home/mzemsch/COLIBRE-analysis/COLIBRE_Paper2/outputs/reference_catalogues/reference_galaxies_z0_all.csv",
+  "reference_population_counts": {
+    "SAG_noncompact": 223,
+    "SRG": 267,
+    "compact_nonrelic": 12790,
+    "noncompact_nonrelic": 116570
+  },
+  "reference_report": "/home/mzemsch/COLIBRE-analysis/COLIBRE_Paper2/outputs/reference_catalogues/reference_galaxies_z0_report.json",
+  "reference_source": "saved_reference",
+  "selected_count": 267,
+  "selected_populations": [
+    "SRG"
+  ]
+}

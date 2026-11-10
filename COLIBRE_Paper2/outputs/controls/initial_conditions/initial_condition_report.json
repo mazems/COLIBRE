@@ -1,0 +1,19 @@
+{
+  "status": "candidate_analogues_only_not_confirmed_nonrelics",
+  "n_pairs": 1294,
+  "n_reference_srgs": 260,
+  "n_unique_controls": 1045,
+  "n_known_reference_srgs_excluded": 267,
+  "n_reused_control_assignments": 249,
+  "n_matching_epochs": 11,
+  "source": "ASCII_at_exact_matching_redshift",
+  "units": "Extra properties are native ASCII values; BH/halo mass and stellar age units NOT verified",
+  "inference": "Descriptive matched-set comparisons only; no independent-pair significance tests",
+  "caveats": [
+    "Descendant outcomes unknown",
+    "Repeated controls create dependence",
+    "Zero BH masses excluded from log-ratio comparisons",
+    "Stellar age weighting and extra-property units require verification",
+    "No local-density or enclosed dark-matter fraction measurement"
+  ]
+}

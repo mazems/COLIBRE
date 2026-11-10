@@ -33,7 +33,7 @@ OUTDIR = "plots"
 OUTNAME = "mass_size_extremes_compactness9p75.pdf"
 OUT_CSV_TRACE = os.path.join(OUTDIR, "extreme_relics_zeroBH_central_status_by_snap.csv")
 
-COMPACTNESS_CUT = 9.75
+COMPACTNESS_CUT = 9.1
 EXTREME_DOR = 0.6
 
 # chunk size for scanning big HDF5 datasets (tune lower if you still get killed)
@@ -253,7 +253,12 @@ if RUN_PLOT:
     os.makedirs(OUTDIR, exist_ok=True)
     outpath = os.path.join(OUTDIR, OUTNAME)
 
-    plt.rcParams.update({"font.size": 12, "figure.figsize": (8,6)})
+    plt.rcParams.update({
+        "font.size": 12,
+        "figure.figsize": (8,6),
+        "mathtext.fontset": "stix",
+        "font.family": "serif",
+    })
     fig, ax = plt.subplots()
     
     cmap = 'viridis' #cmr.iceburn
@@ -265,7 +270,7 @@ if RUN_PLOT:
     xm = np.linspace(np.nanmin(logM) - 0.2, np.nanmax(logM) + 0.2, 400)
     compact_line = (xm - COMPACTNESS_CUT) / 1.5
     ax.plot(xm, compact_line, linestyle="--", color="black", lw=2,
-            label=fr"compactness threshold $\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}})) = {COMPACTNESS_CUT}$")
+            label="compactness threshold") #$\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}})) = {COMPACTNESS_CUT}$")
 
     # # highlight extremes: big orange stars
     # if np.any(extreme_mask_cen):
@@ -287,10 +292,10 @@ if RUN_PLOT:
     # highlight them by ex-situ mass
     if np.any(sag_mask):
         sc = ax.scatter(logM[sag_mask], logR[sag_mask],
-                   s=15, marker='s', c=exsitu_fracs[sag_mask], cmap=cmap, vmin=0.0, vmax=0.8, rasterized=True,
-                   zorder=110, label=fr"non-compact SAGs (DoR > {EXTREME_DOR}, $\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}})) < {COMPACTNESS_CUT}$)")
+                   s=15, marker='d', c=exsitu_fracs[sag_mask], cmap=cmap, vmin=0.0, vmax=0.8, rasterized=True,
+                   zorder=110, label=fr"non-compact SAGs (DoR > {EXTREME_DOR}," "\n" f"$\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}})) < {COMPACTNESS_CUT}$)")
         cbar = plt.colorbar(sc)
-        cbar.set_label(r"$f_\mathrm{ex-situ}$")
+        cbar.set_label(r"$f_\mathrm{ex-situ}$", fontsize=18)
         print(f"Plotted {int(np.sum(extreme_mask))} extreme central relics (DoR > {EXTREME_DOR}).")
     else:
         print(f"No ancients found with DoR > {EXTREME_DOR}.")
@@ -299,15 +304,15 @@ if RUN_PLOT:
     if np.any(relic_mask):
         sc = ax.scatter(logM[relic_mask], logR[relic_mask],
                    s=30, marker='*', c=exsitu_fracs[relic_mask], cmap=cmap, vmin=0.0, vmax=0.8, rasterized=True,
-                   zorder=110, label=fr"SRGs (DoR > {EXTREME_DOR}, $\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}})) > {COMPACTNESS_CUT}$)")
+                   zorder=110, label=fr"SRGs (DoR > {EXTREME_DOR}," "\n" fr"$\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}})) > {COMPACTNESS_CUT}$)")
         print(f"Plotted {int(np.sum(extreme_mask))} extreme central relics (DoR > {EXTREME_DOR}).")
     else:
         print(f"No relics found with DoR > {EXTREME_DOR}.")
 
-    ax.set_xlabel(r"$\log_{{10}}(M_\star / \mathrm{M}_\odot)$", fontsize=13)
-    ax.set_ylabel(r"$\log_{{10}}(R_{1/2, \star} / \mathrm{kpc})$", fontsize=13)
+    ax.set_xlabel(r"$\log_{10}(M_\star / \mathrm{M}_\odot)$", fontsize=18)
+    ax.set_ylabel(r"$\log_{10}(R_{1/2, \star} / \mathrm{kpc})$", fontsize=18)
     ax.grid(True)
-    ax.legend(fontsize=9, loc='lower right')
+    ax.legend(fontsize=12, loc='lower right', bbox_to_anchor=(1.01, -0.01))
 
     fig.tight_layout()
     fig.savefig(outpath, dpi=200, bbox_inches="tight")
@@ -511,3 +516,5 @@ if RUN_TRACE:
                 print("  snap", ev[0], " z=", ev[1], " found=", ev[2], " halo=", ev[3], " is_central=", ev[4])
 
 print("Script finished.")
+
+print("Highest relic compactness:", np.max(compactness[dor_for_each_selected > EXTREME_DOR]))

@@ -35,7 +35,7 @@ columns, you only need to edit SNAPSHOT_COLUMNS below in one place.
 
 Typical usage
 -------------
-python evolution_relics_over_snapshots.py \
+python3 evolution_relics_over_snapshots.py \
   --data-dir /mnt/su3-pro/clagos/COLIBRE/Runs/L200_m6/Thermal/ProcessedData \
   --relic-z0-file z0_relics_trackids.csv \
   --relic-trackid-col track_id \
@@ -1296,45 +1296,577 @@ def plot_ssfr_evolution(hist: pd.DataFrame, outdir: Path, max_highlight: int = 1
     fig.savefig(outdir / "ssfr_instant_evolution.pdf")
     plt.close(fig)
 
-def plot_mass_size_paths(hist: pd.DataFrame, outdir: Path, max_highlight: int = 20) -> None:
+def plot_mass_size_paths(
+    hist: pd.DataFrame,
+    outdir: Path,
+    max_highlight: int = 20,
+) -> None:
+    """
+    Produce two mass-size evolution figures for the tracked relics.
+
+    Figure 1:
+        Individual relic trajectories from z~2 to z=0, with arrows between
+        every consecutive available snapshot. Galaxies are classified at z=0
+        using compactness:
+            SRG: compactness >= 9.75
+            SAG: compactness < 9.75
+
+    Figure 2:
+        Median mass-size tracks for SRGs and SAGs.
+
+    If a 'population' column is present in hist, it is used for classification.
+    This allows compact non-relics to be added later without changing the
+    plotting logic.
+
+    Only snapshots with 0 <= z <= 2 are shown.
+    """
+
+    COMPACTNESS_CUT = 9.75
+
+    # ------------------------------------------------------------------
+    # Restrict to z <= 2 and require valid mass-size coordinates
+    # ------------------------------------------------------------------
+    h = hist.copy()
+
+    h["redshift"] = pd.to_numeric(h["redshift"], errors="coerce")
+
+    h = h[
+        np.isfinite(h["redshift"])
+        & (h["redshift"] >= 0.0)
+        & (h["redshift"] <= 2.0)
+        & np.isfinite(h["log10_stellar_mass"])
+        & np.isfinite(h["log10_rhalf"])
+    ].copy()
+
+    if h.empty:
+        print("No valid z<=2 mass-size data available; skipping mass-size evolution plots.")
+        return
+
+    # ------------------------------------------------------------------
+    # Determine z=0 population class for every tracked galaxy
+    # ------------------------------------------------------------------
+    population_map = {}
+
+    for track_id, g in h.groupby("track_id"):
+
+        g = g.sort_values("redshift", ascending=True)
+
+        # Present-day point = closest available point to z=0
+        z0_idx = np.argmin(np.abs(g["redshift"].to_numpy(dtype=float)))
+        z0 = g.iloc[z0_idx]
+
+        # If an explicit population column already exists, use it.
+        if "population" in g.columns:
+            pop = z0.get("population", None)
+
+            if isinstance(pop, str):
+                population_map[track_id] = pop
+                continue
+
+        # Otherwise classify relics using their z=0 compactness.
+        comp = z0.get("compactness_sigma_1p5", np.nan)
+
+        if np.isfinite(comp):
+            if comp >= COMPACTNESS_CUT:
+                population_map[track_id] = "SRG"
+            else:
+                population_map[track_id] = "SAG"
+        else:
+            population_map[track_id] = "unknown"
+
+    # ==================================================================
+    # FIGURE 1: individual mass-size displacement arrows
+    # ==================================================================
     fig, ax = plt.subplots(figsize=(10, 8))
-    zvals = hist["redshift"].to_numpy(dtype=float)
-    norm = Normalize(vmin=np.nanmin(zvals), vmax=np.nanmax(zvals))
-    cmap = plt.get_cmap("viridis")
 
-    summary = summarize_track_evolution(hist).sort_values("delta_compactness", ascending=False)
-    highlight_ids = summary["track_id"].head(max_highlight).tolist()
+    # --------------------------------------------------------------
+    # Full z≈2 galaxy population in the background
+    # --------------------------------------------------------------
+    ax.scatter(
+        full_logM,
+        full_logR,
+        s=2,
+        color="lightgrey",
+        alpha=0.04,
+        rasterized=True,
+        zorder=0,
+        label="all z≈2 galaxies",
+    )
 
-    for track_id, g in hist.groupby("track_id"):
-        g = g.sort_values("redshift", ascending=False)
-        x = g["log10_stellar_mass"].to_numpy(dtype=float)
-        y = g["log10_rhalf"].to_numpy(dtype=float)
-        z = g["redshift"].to_numpy(dtype=float)
+    # We use fixed class colours so the interpretation is unambiguous.
+    class_colors = {
+        "SRG": "C2",
+        "SAG": "C1",
+        "compact_nonrelic": "0.45",
+        "unknown": "0.6",
+    }
+
+    class_labels_done = set()
+
+    for track_id, g in h.groupby("track_id"):
+
+        g = (
+            g.sort_values("redshift", ascending=False)
+             .drop_duplicates(subset=["redshift"], keep="first")
+        )
+
         if len(g) < 2:
             continue
 
-        if track_id in highlight_ids:
-            ax.plot(x, y, lw=2.0, alpha=0.95)
-            ax.scatter(x, y, c=z, cmap=cmap, norm=norm, s=26, edgecolor="none")
-            ax.text(x[-1], y[-1], f" {int(track_id)}", fontsize=8, alpha=0.9)
-        else:
-            ax.plot(x, y, lw=1.0, alpha=0.18, color="0.4")
-            ax.scatter(x, y, c=z, cmap=cmap, norm=norm, s=12, alpha=0.12, edgecolor="none")
+        x = g["log10_stellar_mass"].to_numpy(dtype=float)
+        y = g["log10_rhalf"].to_numpy(dtype=float)
 
-    ax.set_xlabel(r"$\log_{10}(M_\star/M_\odot)$")
-    ax.set_ylabel(r"$\log_{10}(R_{50}/\mathrm{kpc})$")
-    ax.set_title("Relic mass-size tracks through redshift")
+        pop = population_map.get(track_id, "unknown")
+        colour = class_colors.get(pop, "0.6")
+
+        # --------------------------------------------------------------
+        # Draw faint trajectory
+        # --------------------------------------------------------------
+        ax.plot(
+            x,
+            y,
+            color=colour,
+            lw=0.8,
+            alpha=0.08,
+            zorder=1,
+            rasterized=True,
+        )
+
+        # --------------------------------------------------------------
+        # Draw arrows between EVERY consecutive snapshot
+        # --------------------------------------------------------------
+        for i in range(len(x) - 1):
+
+            if not (
+                np.isfinite(x[i])
+                and np.isfinite(y[i])
+                and np.isfinite(x[i + 1])
+                and np.isfinite(y[i + 1])
+            ):
+                continue
+
+            ax.annotate(
+                "",
+                xy=(x[i + 1], y[i + 1]),
+                xytext=(x[i], y[i]),
+                arrowprops=dict(
+                    arrowstyle="->",
+                    color=colour,
+                    lw=0.9,
+                    alpha=0.30,
+                    shrinkA=0,
+                    shrinkB=0,
+                ),
+                zorder=2,
+            )
+
+        # --------------------------------------------------------------
+        # Mark the individual snapshot positions
+        # --------------------------------------------------------------
+        ax.scatter(
+            x,
+            y,
+            s=10,
+            color=colour,
+            alpha=0.28,
+            edgecolors="none",
+            zorder=3,
+            rasterized=True,
+        )
+
+        # --------------------------------------------------------------
+        # Make z=2 and z=0 especially obvious
+        # --------------------------------------------------------------
+        z2_idx = np.argmin(
+            np.abs(g["redshift"].to_numpy(dtype=float) - 2.0)
+        )
+
+        z0_idx = np.argmin(
+            np.abs(g["redshift"].to_numpy(dtype=float))
+        )
+
+        ax.scatter(
+            x[z2_idx],
+            y[z2_idx],
+            s=42,
+            marker="o",
+            facecolor="white",
+            edgecolor=colour,
+            linewidth=1.2,
+            zorder=10,
+        )
+
+        ax.scatter(
+            x[z0_idx],
+            y[z0_idx],
+            s=55,
+            marker="o",
+            facecolor=colour,
+            edgecolor="black",
+            linewidth=0.8,
+            zorder=11,
+        )
+
+    # ------------------------------------------------------------------
+    # Compactness threshold
+    # ------------------------------------------------------------------
+    xline = np.linspace(
+        9.0,
+        12.0,
+        300,
+    )
+
+    yline = (
+        xline - COMPACTNESS_CUT
+    ) / 1.5
+
+    ax.plot(
+        xline,
+        yline,
+        "--",
+        color="black",
+        lw=1.4,
+        alpha=0.8,
+        label=(
+            rf"$\log_{{10}}\Sigma_{{1.5}}="
+            rf"{COMPACTNESS_CUT:.2f}$"
+        ),
+    )
+
+    # ------------------------------------------------------------------
+    # Legend
+    # ------------------------------------------------------------------
+    from matplotlib.lines import Line2D
+
+    legend_elements = [
+        Line2D(
+        [0], [0],
+        marker="o",
+        markerfacecolor="lightgrey",
+        markeredgecolor="none",
+        color="none",
+        markersize=5,
+        label="all z≈2 galaxies",
+        ),
+        Line2D(
+            [0], [0],
+            color="C2",
+            lw=2.0,
+            label="SRGs (z=0 classification)",
+        ),
+        Line2D(
+            [0], [0],
+            color="C1",
+            lw=2.0,
+            label="SAGs (z=0 classification)",
+        ),
+        Line2D(
+            [0], [0],
+            marker="o",
+            markerfacecolor="white",
+            markeredgecolor="black",
+            color="none",
+            markersize=7,
+            label="z≈2 position",
+        ),
+        Line2D(
+            [0], [0],
+            marker="o",
+            markerfacecolor="C2",
+            markeredgecolor="black",
+            color="none",
+            markersize=7,
+            label="z=0 position",
+        ),
+    ]
+
+    ax.legend(
+        handles=legend_elements,
+        fontsize=10,
+        frameon=False,
+        loc="best",
+    )
+
+    ax.set_xlabel(
+        r"$\log_{10}(M_\star/M_\odot)$"
+    )
+    ax.set_ylabel(
+        r"$\log_{10}(R_{50}/\mathrm{kpc})$"
+    )
+
+    ax.set_title(
+        "Individual relic evolution through the mass-size plane"
+    )
+
     ax.grid(alpha=0.25)
 
-    sm = ScalarMappable(norm=norm, cmap=cmap)
-    sm.set_array([])
-    cbar = fig.colorbar(sm, ax=ax, pad=0.02)
-    cbar.set_label("Redshift")
+    fig.tight_layout()
+
+    fig.savefig(
+        outdir / "mass_size_displacements_z2_z0.png",
+        dpi=250,
+        bbox_inches="tight",
+    )
+
+    fig.savefig(
+        outdir / "mass_size_displacements_z2_z0.pdf",
+        dpi=250,
+        bbox_inches="tight",
+    )
+
+    plt.close(fig)
+
+    print(
+        "Saved individual mass-size displacement figure:",
+        outdir / "mass_size_displacements_z2_z0.png",
+    )
+
+    # ==================================================================
+    # FIGURE 2: median SRG/SAG tracks
+    # ==================================================================
+
+    # Collect all available redshifts in the z<=2 range.
+    redshifts = np.sort(
+        h["redshift"].dropna().unique()
+    )[::-1]
+
+    # Use a small tolerance when grouping approximately identical
+    # redshifts from independent files.
+    def get_median_track(population_name):
+
+        track_rows = []
+
+        for z in redshifts:
+
+            vals_m = []
+            vals_r = []
+
+            for track_id, g in h.groupby("track_id"):
+
+                if population_map.get(track_id) != population_name:
+                    continue
+
+                dz = np.abs(
+                    g["redshift"].to_numpy(dtype=float) - z
+                )
+
+                if dz.size == 0:
+                    continue
+
+                idx = np.argmin(dz)
+
+                # Require that this snapshot is genuinely the same redshift.
+                if dz[idx] > 1e-4:
+                    continue
+
+                row = g.iloc[idx]
+
+                if (
+                    np.isfinite(row["log10_stellar_mass"])
+                    and np.isfinite(row["log10_rhalf"])
+                ):
+                    vals_m.append(
+                        float(row["log10_stellar_mass"])
+                    )
+                    vals_r.append(
+                        float(row["log10_rhalf"])
+                    )
+
+            if len(vals_m) == 0:
+                continue
+
+            track_rows.append(
+                {
+                    "redshift": z,
+                    "logM": np.nanmedian(vals_m),
+                    "logR": np.nanmedian(vals_r),
+                    "n": len(vals_m),
+                }
+            )
+
+        return pd.DataFrame(track_rows)
+
+    median_srg = get_median_track("SRG")
+    median_sag = get_median_track("SAG")
+
+    # ------------------------------------------------------------------
+    # Median-track figure
+    # ------------------------------------------------------------------
+    fig, ax = plt.subplots(figsize=(9, 7))
+
+    if not median_sag.empty:
+
+        ax.plot(
+            median_sag["logM"],
+            median_sag["logR"],
+            color="C1",
+            lw=3.0,
+            marker="o",
+            markersize=5,
+            label="median SAG",
+            zorder=10,
+        )
+
+        # Mark z=2 and z=0
+        ax.scatter(
+            median_sag.iloc[0]["logM"],
+            median_sag.iloc[0]["logR"],
+            s=80,
+            marker="o",
+            facecolor="white",
+            edgecolor="C1",
+            linewidth=2,
+            zorder=20,
+        )
+
+        ax.scatter(
+            median_sag.iloc[-1]["logM"],
+            median_sag.iloc[-1]["logR"],
+            s=90,
+            marker="o",
+            facecolor="C1",
+            edgecolor="black",
+            linewidth=1,
+            zorder=21,
+        )
+
+    if not median_srg.empty:
+
+        ax.plot(
+            median_srg["logM"],
+            median_srg["logR"],
+            color="C2",
+            lw=3.0,
+            marker="o",
+            markersize=5,
+            label="median SRG",
+            zorder=11,
+        )
+
+        # Mark z=2 and z=0
+        ax.scatter(
+            median_srg.iloc[0]["logM"],
+            median_srg.iloc[0]["logR"],
+            s=80,
+            marker="o",
+            facecolor="white",
+            edgecolor="C2",
+            linewidth=2,
+            zorder=20,
+        )
+
+        ax.scatter(
+            median_srg.iloc[-1]["logM"],
+            median_srg.iloc[-1]["logR"],
+            s=90,
+            marker="o",
+            facecolor="C2",
+            edgecolor="black",
+            linewidth=1,
+            zorder=21,
+        )
+
+    # ------------------------------------------------------------------
+    # Label approximate redshift positions
+    # ------------------------------------------------------------------
+    for track_df, colour in [
+        (median_srg, "C2"),
+        (median_sag, "C1"),
+    ]:
+
+        if track_df.empty:
+            continue
+
+        for target_z in [2.0, 1.0, 0.5, 0.0]:
+
+            idx = np.argmin(
+                np.abs(
+                    track_df["redshift"].to_numpy(dtype=float)
+                    - target_z
+                )
+            )
+
+            if abs(
+                track_df.iloc[idx]["redshift"] - target_z
+            ) < 0.15:
+
+                ax.annotate(
+                    f"z={track_df.iloc[idx]['redshift']:.1f}",
+                    (
+                        track_df.iloc[idx]["logM"],
+                        track_df.iloc[idx]["logR"],
+                    ),
+                    xytext=(5, 5),
+                    textcoords="offset points",
+                    fontsize=9,
+                    color=colour,
+                )
+
+    # ------------------------------------------------------------------
+    # Compactness threshold
+    # ------------------------------------------------------------------
+    xline = np.linspace(
+        9.0,
+        12.0,
+        300,
+    )
+
+    yline = (
+        xline - COMPACTNESS_CUT
+    ) / 1.5
+
+    ax.plot(
+        xline,
+        yline,
+        "--",
+        color="black",
+        lw=1.4,
+        alpha=0.8,
+        label=(
+            rf"$\log_{{10}}\Sigma_{{1.5}}="
+            rf"{COMPACTNESS_CUT:.2f}$"
+        ),
+    )
+
+    ax.set_xlabel(
+        r"$\log_{10}(M_\star/M_\odot)$"
+    )
+    ax.set_ylabel(
+        r"$\log_{10}(R_{50}/\mathrm{kpc})$"
+    )
+
+    ax.set_title(
+        "Median relic evolution through the mass-size plane"
+    )
+
+    ax.grid(alpha=0.25)
+
+    ax.legend(
+        fontsize=10,
+        frameon=False,
+        loc="best",
+    )
 
     fig.tight_layout()
-    fig.savefig(outdir / "mass_size_tracks.png", dpi=200)
-    fig.savefig(outdir / "mass_size_tracks.pdf")
+
+    fig.savefig(
+        outdir / "mass_size_median_tracks_z2_z0.png",
+        dpi=250,
+        bbox_inches="tight",
+    )
+
+    fig.savefig(
+        outdir / "mass_size_median_tracks_z2_z0.pdf",
+        dpi=250,
+        bbox_inches="tight",
+    )
+
     plt.close(fig)
+
+    print(
+        "Saved median mass-size evolution figure:",
+        outdir / "mass_size_median_tracks_z2_z0.png",
+    )
 
 
 def plot_central_satellite_transitions(hist: pd.DataFrame, outdir: Path) -> None:
@@ -1590,6 +2122,941 @@ def build_argparser() -> argparse.ArgumentParser:
     return p
 
 
+# -----------------------------------------------------------------------------
+# Stripping diagnostic figure
+# -----------------------------------------------------------------------------
+def plot_stripping_diagnostics(
+    hist: pd.DataFrame,
+    outdir: Path,
+) -> None:
+    """
+    Diagnose whether present-day satellite relics show evolutionary signatures
+    consistent with substantial post-infall stellar stripping.
+
+    For each z=0 satellite relic with an identifiable first central -> satellite
+    transition:
+
+      - infall is defined by the first central -> satellite transition;
+      - the reference stellar mass is the maximum stellar mass reached before
+        that transition;
+      - the reference size is the R50 measured at the snapshot where the
+        pre-infall stellar mass peaks;
+      - post-infall mass and size evolution are normalised to this common
+        pre-infall peak state;
+      - the direct structural change from the pre-infall peak state to z=0 is
+        quantified in Delta log M*, Delta log R50, and Delta log Sigma_1.5.
+
+    This deliberately distinguishes the "last central snapshot" from the
+    "maximum pre-infall stellar mass". The former marks the dynamical
+    transition, while the latter provides the more physically meaningful
+    reference for cumulative stellar-mass loss.
+
+    Produces:
+      1. stripping_diagnostics_3panel.pdf
+      2. stripping_diagnostics_3panel.png
+      3. stripping_diagnostics_per_galaxy.csv
+    """
+
+    records = []
+    tracks_for_plot = []
+    infall_lookbacks_for_plot = []
+
+    # ------------------------------------------------------------------
+    # Identify z=0 satellites and their first central -> satellite
+    # transition.
+    # ------------------------------------------------------------------
+    for track_id, g in hist.groupby("track_id"):
+
+        g = (
+            g.dropna(subset=["redshift", "is_central"])
+             .sort_values("redshift", ascending=False)
+             .reset_index(drop=True)
+        )
+
+        if len(g) < 2:
+            continue
+
+        # Present-day snapshot = row closest to z=0
+        z0_idx = np.argmin(
+            np.abs(g["redshift"].to_numpy(dtype=float))
+        )
+        z0 = g.iloc[z0_idx]
+
+        # Only present-day satellites
+        if z0["is_central"] > 0.5:
+            continue
+
+        # --------------------------------------------------------------
+        # First central -> satellite transition
+        # --------------------------------------------------------------
+        transition = None
+
+        for i in range(len(g) - 1):
+            before = g.iloc[i]
+            after = g.iloc[i + 1]
+
+            if (
+                before["is_central"] > 0.5
+                and after["is_central"] <= 0.5
+            ):
+                transition = i
+                break
+
+        if transition is None:
+            continue
+
+        pre = g.iloc[transition]
+        post = g.iloc[transition + 1]
+
+        # --------------------------------------------------------------
+        # Basic validity checks
+        # --------------------------------------------------------------
+        required = [
+            pre["stellar_mass"],
+            post["stellar_mass"],
+            z0["stellar_mass"],
+            pre["rhalf"],
+            post["rhalf"],
+            z0["rhalf"],
+            pre["lookback_time_gyr"],
+            post["lookback_time_gyr"],
+        ]
+
+        if not np.all(np.isfinite(required)):
+            continue
+
+        if (
+            pre["stellar_mass"] <= 0
+            or post["stellar_mass"] <= 0
+            or z0["stellar_mass"] <= 0
+            or pre["rhalf"] <= 0
+            or post["rhalf"] <= 0
+            or z0["rhalf"] <= 0
+        ):
+            continue
+
+        # --------------------------------------------------------------
+        # Infall time
+        #
+        # The transition occurs between the last-central snapshot and
+        # the first-satellite snapshot. We use their midpoint in
+        # lookback time as the estimated infall time.
+        # --------------------------------------------------------------
+        lb_pre = float(pre["lookback_time_gyr"])
+        lb_post = float(post["lookback_time_gyr"])
+        lb_infall = 0.5 * (lb_pre + lb_post)
+
+        infall_lookbacks_for_plot.append(lb_infall)
+
+        # Positive = time after infall
+        g = g.copy()
+
+        g["time_since_infall_gyr"] = (
+            lb_infall
+            - g["lookback_time_gyr"].astype(float)
+        )
+
+        # --------------------------------------------------------------
+        # PRE-INFALL PEAK REFERENCE STATE
+        #
+        # Find the maximum stellar mass before / at the transition.
+        # The radius and compactness at exactly this snapshot define the
+        # corresponding structural reference state.
+        # --------------------------------------------------------------
+        pre_infall_part = g.iloc[:transition + 1].copy()
+
+        m_pre_array = (
+            pre_infall_part["stellar_mass"]
+            .to_numpy(dtype=float)
+        )
+
+        valid_peak = (
+            np.isfinite(m_pre_array)
+            & (m_pre_array > 0)
+        )
+
+        if not np.any(valid_peak):
+            continue
+
+        peak_local_idx = np.where(valid_peak)[0][
+            np.argmax(m_pre_array[valid_peak])
+        ]
+
+        peak = pre_infall_part.iloc[peak_local_idx]
+
+        m_peak_pre = float(peak["stellar_mass"])
+        r_peak_pre = float(peak["rhalf"])
+
+        # Require a valid reference radius
+        if not np.isfinite(r_peak_pre) or r_peak_pre <= 0:
+            continue
+
+        compact_peak_pre = float(
+            peak["compactness_sigma_1p5"]
+        )
+
+        # --------------------------------------------------------------
+        # z=0 values
+        # --------------------------------------------------------------
+        m_z0 = float(z0["stellar_mass"])
+        r_z0 = float(z0["rhalf"])
+        compact_z0 = float(
+            z0["compactness_sigma_1p5"]
+        )
+
+        # --------------------------------------------------------------
+        # Main stripping diagnostics
+        # --------------------------------------------------------------
+
+        # Fractional stellar-mass loss relative to the maximum mass
+        # attained before infall.
+        f_loss_peak_pre = (
+            1.0 - m_z0 / m_peak_pre
+        )
+
+        # Logarithmic structural changes from the peak pre-infall state
+        # to z=0.
+        dlogm = np.log10(
+            m_z0 / m_peak_pre
+        )
+
+        dlogr = np.log10(
+            r_z0 / r_peak_pre
+        )
+
+        # Delta compactness follows directly from
+        # Sigma_1.5 = M_star / R_50^1.5
+        dcompact = (
+            compact_z0
+            - compact_peak_pre
+        )
+
+        records.append({
+            "track_id": int(track_id),
+
+            "redshift_infall_midpoint": 0.5 * (
+                float(pre["redshift"])
+                + float(post["redshift"])
+            ),
+            "lookback_infall_gyr": lb_infall,
+
+            # Last-central quantities retained for reference
+            "stellar_mass_pre_infall": float(pre["stellar_mass"]),
+            "rhalf_pre_infall": float(pre["rhalf"]),
+
+            # Peak pre-infall reference state
+            "redshift_peak_pre_infall": float(
+                peak["redshift"]
+            ),
+            "lookback_peak_pre_infall_gyr": float(
+                peak["lookback_time_gyr"]
+            ),
+            "stellar_mass_peak_pre_infall": m_peak_pre,
+            "rhalf_peak_pre_infall": r_peak_pre,
+            "compactness_peak_pre_infall": compact_peak_pre,
+
+            # Present day
+            "stellar_mass_z0": m_z0,
+            "rhalf_z0": r_z0,
+            "compactness_z0": compact_z0,
+
+            # Main stripping diagnostics
+            "f_mass_loss_peak_pre_infall_to_z0":
+                f_loss_peak_pre,
+
+            "delta_log10_mstar":
+                dlogm,
+
+            "delta_log10_rhalf":
+                dlogr,
+
+            "delta_compactness":
+                dcompact,
+
+            # Dynamical classification
+            "central_before_infall":
+                float(pre["is_central"]),
+
+            "central_after_infall":
+                float(post["is_central"]),
+
+            "central_z0":
+                float(z0["is_central"]),
+        })
+
+        # --------------------------------------------------------------
+        # Post-infall evolutionary track
+        #
+        # IMPORTANT:
+        # The time coordinate is still measured from the inferred infall
+        # time. The *normalisation* is now the peak pre-infall state.
+        # Thus t=0 does not necessarily correspond to M/M_peak = 1.
+        # --------------------------------------------------------------
+        gg = g[
+            np.isfinite(g["time_since_infall_gyr"])
+            & np.isfinite(g["stellar_mass"])
+            & np.isfinite(g["rhalf"])
+            & (g["stellar_mass"] > 0)
+            & (g["rhalf"] > 0)
+            & (g["time_since_infall_gyr"] >= 0)
+        ].copy()
+
+        if len(gg) >= 2:
+
+            gg["m_norm"] = (
+                gg["stellar_mass"]
+                / m_peak_pre
+            )
+
+            gg["r_norm"] = (
+                gg["rhalf"]
+                / r_peak_pre
+            )
+
+            tracks_for_plot.append(gg)
+
+    # ------------------------------------------------------------------
+    # Assemble diagnostics table
+    # ------------------------------------------------------------------
+    diag = pd.DataFrame(records)
+
+    if diag.empty:
+        print(
+            "No suitable z=0 satellite relics with an identifiable "
+            "central -> satellite transition were found."
+        )
+        return
+
+    diag_path = (
+        outdir /
+        "stripping_diagnostics_per_galaxy.csv"
+    )
+
+    diag.to_csv(
+        diag_path,
+        index=False
+    )
+
+    # ------------------------------------------------------------------
+    # Numerical diagnostics
+    # ------------------------------------------------------------------
+    print("\n====================================================")
+    print("STRIPPING DIAGNOSTICS")
+    print("====================================================")
+
+    n = len(diag)
+
+    print(
+        f"Usable present-day satellite relics: {n}"
+    )
+
+    loss = (
+        diag["f_mass_loss_peak_pre_infall_to_z0"]
+        .to_numpy(dtype=float)
+    )
+
+    print(
+        "\nStellar-mass loss relative to "
+        "pre-infall peak:"
+    )
+
+    print(
+        f"  median = "
+        f"{100*np.nanmedian(loss):.2f}%"
+    )
+
+    print(
+        f"  16th percentile = "
+        f"{100*np.nanpercentile(loss, 16):.2f}%"
+    )
+
+    print(
+        f"  84th percentile = "
+        f"{100*np.nanpercentile(loss, 84):.2f}%"
+    )
+
+    for threshold in [0.05, 0.10, 0.20]:
+
+        nn = int(
+            np.sum(loss > threshold)
+        )
+
+        print(
+            f"  > {100*threshold:.0f}% loss: "
+            f"{nn}/{n} "
+            f"({100*nn/n:.1f}%)"
+        )
+
+    # ------------------------------------------------------------------
+    # Direct peak-pre-infall -> z=0 structural changes
+    # ------------------------------------------------------------------
+    dlogm = (
+        diag["delta_log10_mstar"]
+        .to_numpy(dtype=float)
+    )
+
+    dlogr = (
+        diag["delta_log10_rhalf"]
+        .to_numpy(dtype=float)
+    )
+
+    dcomp = (
+        diag["delta_compactness"]
+        .to_numpy(dtype=float)
+    )
+
+    print(
+        "\nPeak pre-infall -> z=0 changes:"
+    )
+
+    print(
+        f"  median Delta log M* = "
+        f"{np.nanmedian(dlogm):.3f} dex"
+    )
+
+    print(
+        f"  median Delta log R50 = "
+        f"{np.nanmedian(dlogr):.3f} dex"
+    )
+
+    print(
+        f"  median Delta compactness = "
+        f"{np.nanmedian(dcomp):.3f} dex"
+    )
+
+    # Descriptive, not by themselves proof of stripping
+    mass_loss = dlogm < 0
+    size_decrease = dlogr < 0
+    compactness_increase = dcomp > 0
+
+    mass_and_size_loss = (
+        mass_loss
+        & size_decrease
+    )
+
+    print(
+        f"  mass loss AND size decrease: "
+        f"{np.sum(mass_and_size_loss)}/{n} "
+        f"({100*np.mean(mass_and_size_loss):.1f}%)"
+    )
+
+    print(
+        f"  compactness increase: "
+        f"{np.sum(compactness_increase)}/{n} "
+        f"({100*np.mean(compactness_increase):.1f}%)"
+    )
+
+    print("\nSaved diagnostics:")
+    print(diag_path)
+
+    # ------------------------------------------------------------------
+    # Figure
+    # ------------------------------------------------------------------
+    plt.rcParams.update({
+        "mathtext.fontset": "stix",
+        "font.family": "serif",
+        "font.size": 13,
+    })
+
+    fig, axes = plt.subplots(
+        1,
+        3,
+        figsize=(18, 5.5),
+        gridspec_kw={"wspace": 0.28},
+    )
+
+    ax_mass, ax_size, ax_change = axes
+
+    # ==================================================================
+    # PANEL (a): stellar-mass evolution
+    # ==================================================================
+    for gg in tracks_for_plot:
+
+        ax_mass.plot(
+            gg["time_since_infall_gyr"],
+            gg["m_norm"],
+            color="0.55",
+            lw=1.0,
+            alpha=0.15,
+            rasterized=True,
+            zorder=1,
+        )
+
+    if tracks_for_plot:
+
+        all_x = np.concatenate([
+            gg["time_since_infall_gyr"]
+            .to_numpy(dtype=float)
+            for gg in tracks_for_plot
+        ])
+
+        all_y = np.concatenate([
+            gg["m_norm"]
+            .to_numpy(dtype=float)
+            for gg in tracks_for_plot
+        ])
+
+        xmax = np.nanpercentile(
+            all_x,
+            99
+        )
+
+        bins = np.linspace(
+            0,
+            xmax,
+            20
+        )
+
+        xc = 0.5 * (
+            bins[:-1]
+            + bins[1:]
+        )
+
+        med = np.full_like(
+            xc,
+            np.nan
+        )
+
+        lo = np.full_like(
+            xc,
+            np.nan
+        )
+
+        hi = np.full_like(
+            xc,
+            np.nan
+        )
+
+        for i in range(len(xc)):
+
+            vals = all_y[
+                (all_x >= bins[i])
+                & (all_x < bins[i + 1])
+            ]
+
+            if len(vals) >= 5:
+
+                med[i] = np.nanmedian(
+                    vals
+                )
+
+                lo[i] = np.nanpercentile(
+                    vals,
+                    16
+                )
+
+                hi[i] = np.nanpercentile(
+                    vals,
+                    84
+                )
+
+        good = (
+            np.isfinite(med)
+            & np.isfinite(lo)
+            & np.isfinite(hi)
+        )
+
+        if np.any(good):
+
+            z0_m_norm = np.array([
+                gg.iloc[np.argmin(np.abs(gg["redshift"].to_numpy(dtype=float)))]["m_norm"]
+                for gg in tracks_for_plot
+            ])
+
+            median_mass_final = np.nanmedian(z0_m_norm)
+
+            ax_mass.fill_between(
+                xc[good],
+                lo[good],
+                hi[good],
+                color="C0",
+                alpha=0.20,
+                zorder=4,
+            )
+
+            ax_mass.plot(
+                xc[good],
+                med[good],
+                color="C0",
+                lw=2.8,
+                zorder=5,
+                label=fr"median (16th--84th percentile; $z=0$: {median_mass_final:.2f})",
+            )
+
+    # Peak-mass reference
+    ax_mass.axhline(
+        1.0,
+        color="black",
+        linestyle="--",
+        lw=1.2,
+        zorder=3,
+    )
+
+    # Infall itself
+    ax_mass.axvline(
+        0.0,
+        color="0.35",
+        linestyle=":",
+        lw=1.1,
+        zorder=3,
+    )
+
+    ax_mass.set_xlabel(
+        "Time since infall [Gyr]"
+    )
+
+    ax_mass.set_ylabel(
+        r"$M_\star/M_{\star,\mathrm{peak,pre-infall}}$"
+    )
+
+    ax_mass.set_title(
+        "(a) Stellar-mass evolution"
+    )
+
+    ax_mass.grid(
+        alpha=0.25
+    )
+
+    ax_mass.legend(
+        loc="best",
+        fontsize=11,
+        frameon=True,
+        framealpha=0.9,
+    )
+
+    # ==================================================================
+    # PANEL (b): size evolution
+    # ==================================================================
+    for gg in tracks_for_plot:
+
+        ax_size.plot(
+            gg["time_since_infall_gyr"],
+            gg["r_norm"],
+            color="0.55",
+            lw=1.0,
+            alpha=0.15,
+            rasterized=True,
+            zorder=1,
+        )
+
+    if tracks_for_plot:
+
+        all_x = np.concatenate([
+            gg["time_since_infall_gyr"]
+            .to_numpy(dtype=float)
+            for gg in tracks_for_plot
+        ])
+
+        all_y = np.concatenate([
+            gg["r_norm"]
+            .to_numpy(dtype=float)
+            for gg in tracks_for_plot
+        ])
+
+        xmax = np.nanpercentile(
+            all_x,
+            99
+        )
+
+        bins = np.linspace(
+            0,
+            xmax,
+            20
+        )
+
+        xc = 0.5 * (
+            bins[:-1]
+            + bins[1:]
+        )
+
+        med = np.full_like(
+            xc,
+            np.nan
+        )
+
+        lo = np.full_like(
+            xc,
+            np.nan
+        )
+
+        hi = np.full_like(
+            xc,
+            np.nan
+        )
+
+        for i in range(len(xc)):
+
+            vals = all_y[
+                (all_x >= bins[i])
+                & (all_x < bins[i + 1])
+            ]
+
+            if len(vals) >= 5:
+
+                med[i] = np.nanmedian(
+                    vals
+                )
+
+                lo[i] = np.nanpercentile(
+                    vals,
+                    16
+                )
+
+                hi[i] = np.nanpercentile(
+                    vals,
+                    84
+                )
+
+        good = (
+            np.isfinite(med)
+            & np.isfinite(lo)
+            & np.isfinite(hi)
+        )
+
+        if np.any(good):
+
+            z0_r_norm = np.array([
+                gg.iloc[np.argmin(np.abs(gg["redshift"].to_numpy(dtype=float)))]["r_norm"]
+                for gg in tracks_for_plot
+            ])
+
+            median_size_final = np.nanmedian(z0_r_norm)
+
+            ax_size.fill_between(
+                xc[good],
+                lo[good],
+                hi[good],
+                color="C1",
+                alpha=0.20,
+                zorder=4,
+            )
+
+            ax_size.plot(
+                xc[good],
+                med[good],
+                color="C1",
+                lw=2.8,
+                zorder=5,
+                label=fr"median (16th--84th percentile; $z=0$: {median_size_final:.2f})",
+            )
+
+    # Peak-state reference
+    ax_size.axhline(
+        1.0,
+        color="black",
+        linestyle="--",
+        lw=1.2,
+        zorder=3,
+    )
+
+    # Infall itself
+    ax_size.axvline(
+        0.0,
+        color="0.35",
+        linestyle=":",
+        lw=1.1,
+        zorder=3,
+    )
+
+    ax_size.set_xlabel(
+        "Time since infall [Gyr]"
+    )
+
+    ax_size.set_ylabel(
+        r"$R_{50}/R_{50,\mathrm{peak,pre-infall}}$"
+    )
+
+    ax_size.set_title(
+        "(b) Size evolution"
+    )
+
+    ax_size.grid(
+        alpha=0.25
+    )
+
+    ax_size.legend(
+        loc="best",
+        fontsize=11,
+        frameon=True,
+        framealpha=0.9,
+    )
+
+    # ==================================================================
+    # PANEL (c): peak pre-infall -> z=0 structural change
+    # ==================================================================
+    x = diag[
+        "delta_log10_mstar"
+    ].to_numpy(dtype=float)
+
+    y = diag[
+        "delta_log10_rhalf"
+    ].to_numpy(dtype=float)
+
+    c = diag[
+        "delta_compactness"
+    ].to_numpy(dtype=float)
+
+    finite = (
+        np.isfinite(x)
+        & np.isfinite(y)
+        & np.isfinite(c)
+    )
+
+    sc = ax_change.scatter(
+        x[finite],
+        y[finite],
+        c=c[finite],
+        cmap="viridis",
+        s=32,
+        alpha=0.80,
+        edgecolors="none",
+        rasterized=True,
+    )
+
+    cbar = fig.colorbar(
+        sc,
+        ax=ax_change,
+        pad=0.02,
+    )
+
+    cbar.set_label(
+        r"$\Delta\log_{10}\Sigma_{1.5}$ [dex]"
+    )
+
+    # Zero-change lines
+    ax_change.axvline(
+        0.0,
+        color="0.35",
+        linestyle="--",
+        lw=1.0,
+    )
+
+    ax_change.axhline(
+        0.0,
+        color="0.35",
+        linestyle="--",
+        lw=1.0,
+    )
+
+    # Constant compactness:
+    #
+    # Delta log Sigma = Delta log M - 1.5 Delta log R = 0
+    #
+    # => Delta log R = Delta log M / 1.5
+    if np.any(finite):
+
+        xx = np.linspace(
+            np.nanmin(x[finite]) - 0.05,
+            np.nanmax(x[finite]) + 0.05,
+            200,
+        )
+
+        ax_change.plot(
+            xx,
+            xx / 1.5,
+            color="black",
+            linestyle=":",
+            lw=1.5,
+            label="constant compactness",
+        )
+
+    ax_change.set_xlabel(
+        r"$\Delta\log_{10}(M_\star)$"
+    )
+
+    ax_change.set_ylabel(
+        r"$\Delta\log_{10}(R_{50})$"
+    )
+
+    ax_change.set_title(
+        "(c) Peak pre-infall to $z=0$ evolution"
+    )
+
+    ax_change.grid(
+        alpha=0.25
+    )
+
+    ax_change.legend(
+        fontsize=10
+    )
+
+    # ------------------------------------------------------------------
+    # Compact quantitative summary
+    # ------------------------------------------------------------------
+    median_dm = np.nanmedian(dlogm)
+    median_dr = np.nanmedian(dlogr)
+    median_dc = np.nanmedian(dcomp)
+    median_loss = np.nanmedian(loss)
+
+    summary_text = (
+        rf"$\mathrm{{median}}\ \Delta\log M_\star"
+        rf"={median_dm:.2f}$ dex" "\n"
+        rf"$\mathrm{{median}}\ \Delta\log R_{{50}}"
+        rf"={median_dr:.2f}$ dex" "\n"
+        rf"$\mathrm{{median}}\ \Delta\Sigma_{{1.5}}"
+        rf"={median_dc:.2f}$ dex" "\n"
+        rf"$\mathrm{{median}}\ f_{{\rm loss}}"
+        rf"={100*median_loss:.1f}\%$"
+    )
+
+    ax_change.text(
+        0.03,
+        0.97,
+        summary_text,
+        transform=ax_change.transAxes,
+        ha="left",
+        va="top",
+        fontsize=10,
+        bbox=dict(
+            facecolor="white",
+            edgecolor="0.7",
+            alpha=0.85,
+            pad=3,
+        ),
+    )
+
+    # ------------------------------------------------------------------
+    # Final formatting
+    # ------------------------------------------------------------------
+    for ax in axes:
+
+        ax.tick_params(
+            axis="both",
+            labelsize=12,
+        )
+
+    fig.tight_layout()
+
+    pdf_path = (
+        outdir /
+        "stripping_diagnostics_3panel.pdf"
+    )
+
+    png_path = (
+        outdir /
+        "stripping_diagnostics_3panel.png"
+    )
+
+    fig.savefig(
+        pdf_path,
+        dpi=300,
+        bbox_inches="tight",
+    )
+
+    fig.savefig(
+        png_path,
+        dpi=200,
+        bbox_inches="tight",
+    )
+
+    plt.close(fig)
+
+    print(
+        "\nSaved stripping diagnostic figure:"
+    )
+    print(pdf_path)
+    print(png_path)
+
 def main() -> None:
     args = build_argparser().parse_args()
     ensure_dir(args.output_dir)
@@ -1771,6 +3238,8 @@ def main() -> None:
     plot_ssfr_evolution(hist, args.output_dir, max_highlight=args.max_highlight)
     plot_mass_size_paths(hist, args.output_dir, max_highlight=args.max_highlight)
     plot_central_satellite_transitions(hist, args.output_dir)
+
+    plot_stripping_diagnostics(hist, args.output_dir)
 
     if args.animate:
         make_animation(hist, args.output_dir)

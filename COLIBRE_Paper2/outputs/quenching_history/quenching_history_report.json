@@ -1,0 +1,35 @@
+{
+  "final_quenching_status_counts": {
+    "already_quenched_no_observed_sf": 2,
+    "final_quenching_bracketed": 262,
+    "z0_not_observed_quenched": 3
+  },
+  "formation_configuration": {
+    "apply_mass_cut": false,
+    "compactness_comparison": ">=",
+    "compactness_threshold": 9.75,
+    "cosmology": "Planck13",
+    "matching_epoch_definition": "first_compact_and_quenched",
+    "minimum_stellar_mass_msun": 10000000000.0,
+    "quenching_comparison": "<",
+    "quenching_factor": 0.2,
+    "quenching_method": "age_of_universe",
+    "red_nugget_min_redshift": 2.0
+  },
+  "n_compact_at_final_quenching": 252,
+  "n_eligible_for_alternative_matching": 262,
+  "n_epoch_rows": 4738,
+  "n_galaxies": 267,
+  "n_with_any_observed_Q_to_SF_transition": 71,
+  "n_with_final_quenching_transition": 262,
+  "n_with_first_compact_quenched": 266,
+  "n_with_qualifying_rejuvenation": 71,
+  "note": "Discrete observed epochs only; no continuous transition times. First-CQ and final-Q are different scientific definitions. No existing matching files modified.",
+  "quenching_history_configuration": {
+    "minimum_consecutive_quenched_snapshots": 1,
+    "minimum_consecutive_star_forming_snapshots": 1,
+    "plot_max_tracks": 12,
+    "require_compact_at_final_quenching": false,
+    "require_z0_quenched": true
+  }
+}

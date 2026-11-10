@@ -13,6 +13,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import BSpline, splrep
 from scipy.spatial import cKDTree as KDTree
+# from scipy.spatial import ConvexHull
+# from matplotlib.path import Path as MplPath
 from scipy.stats import gaussian_kde
 
 MODEL_NAME = 'L0200N3008/THERMAL_AGN/'
@@ -46,9 +48,9 @@ INNER_WSPACE = 0.02
 
 GLOBAL_FONT = 24
 AXIS_LABEL_FONT = 28
-TICK_FONT = 15
+TICK_FONT = 16 #15
 CBAR_LABEL_FONT = 22
-CBAR_TICK_FONT = 14
+CBAR_TICK_FONT = 15 #14
 PANEL_LABEL_FONT = 22
 LEGEND_FONT = 14
 DERIV_LABEL_FONT = 22
@@ -78,14 +80,14 @@ PROJ_X_LIMITS = {
 PANEL_LABELS = ['a)', 'b)', 'c)', 'd)', 'e)', 'f)']
 QUANTITY_KEYS = ['age', 'metallicity', 'mgfe', 'ssfr', 'sigma', 'exsitu']
 Y_LABELS = [
-    'Age [Gyr]',
-    r'$[Z/H]$',
+    r'$\text{Age} [\mathrm{Gyr}]$',
+    r'$[\mathrm{Z}/\mathrm{H}]$',
     r'$[\mathrm{Mg}/\mathrm{Fe}]$',
     r'$\log_{10}(\mathrm{sSFR}\,/\,\mathrm{yr}^{-1})$',
     r'$\log_{10}(\sigma\,/\,\mathrm{km}\,\mathrm{s}^{-1})$',
     r'$f_{\mathrm{ex-situ}}$',
 ]
-X_LABEL = r'$\log_{10}(\Sigma_{1.5}\,[M_\odot\,\mathrm{kpc}^{-1.5}])$'
+X_LABEL = r'$\log_{10}(\Sigma_{1.5}/(\mathrm{M}_\odot\,\mathrm{kpc}^{-1.5}))$'
 
 TARGET_PER_BIN = {k: 1000 for k in QUANTITY_KEYS}
 SPLINE_S_FACTOR = {
@@ -112,7 +114,7 @@ EDGE_FRAC = 0.05
 
 KDE_NX = 200
 KDE_NY = 200
-KDE_DISTANCE_FACTOR = 1.3
+KDE_DISTANCE_FACTOR = 1.8 #1.3 
 KDE_LEVELS = 50
 KDE_CONTOUR_PERCENTILES = [50, 75, 90, 97]
 
@@ -632,7 +634,7 @@ def draw_quantity_block(fig, outer_cell, p, key, y_label, row):
     ax_main.scatter(
         p["x"], p["y"],
         s=8, color="lightgrey", alpha=0.8, linewidths=0,
-        label="galaxies", rasterized=True,
+        label="individual galaxies", rasterized=True,
     )
 
     cf = ax_main.contourf(
@@ -651,13 +653,31 @@ def draw_quantity_block(fig, outer_cell, p, key, y_label, row):
 
     ok = np.isfinite(p["median"])
     if np.any(ok):
-        ax_main.plot(
-            p["centers"][ok], p["median"][ok],
-            color="black", lw=2, label="median (binned)", zorder=10,
-        )
+        # ax_main.plot(
+        #     p["centers"][ok], p["median"][ok],
+        #     color="black", lw=2, label="median (binned)", zorder=10,
+        # )
+        # ax_main.fill_between(
+        #     p["centers"], p["low"], p["high"],
+        #     color="black", alpha=0.30, zorder=8,
+        # )
         ax_main.fill_between(
             p["centers"], p["low"], p["high"],
-            color="black", alpha=0.15, zorder=8,
+            color="black", alpha=0.30, zorder=7,
+        )
+
+        # White underlay makes the median visible against both the KDE
+        # and the grey percentile region.
+        ax_main.plot(
+            p["centers"][ok], p["median"][ok],
+            color="white", lw=4.2, zorder=9,
+        )
+
+        ax_main.plot(
+            p["centers"][ok], p["median"][ok],
+            color="black", lw=2.5,
+            label="median (binned)",
+            zorder=10,
         )
 
     ax_main.set_xlim(*X_LIMITS)
@@ -690,14 +710,59 @@ def draw_quantity_block(fig, outer_cell, p, key, y_label, row):
     #         facecolor="white",
     #     )
 
-    ax_proj.plot(p["centers"], p["median"], color="C0", lw=2, label="median (binned)")
-    ax_proj.fill_between(p["centers"], p["low"], p["high"], color="C0", alpha=0.25)
-    ax_proj.plot(p["centers"], p["smooth"], linestyle="--", color="C2", lw=2, label="smoothed median")
-    ax_proj.axvline(p["threshold"], color="C2", linestyle="--", lw=1.6, label=f"thr={p['threshold']:.2f}")
-    ax_proj.set_xlim(*PROJ_X_LIMITS[key])
+    ax_proj.fill_between(
+        p["centers"],
+        p["low"],
+        p["high"],
+        color="C0",
+        alpha=0.25,
+        zorder=1,
+    )
+
+    ax_proj.plot(
+        p["centers"],
+        p["median"],
+        color="C0",
+        lw=2.5,
+        label="median (binned)",
+        zorder=5,
+    )
+
+    ax_proj.plot(
+        p["centers"],
+        p["smooth"],
+        color="C1",
+        linestyle="--",
+        lw=1.4,
+        label="smoothed median",
+        zorder=6,
+    )
+
+    ax_proj.axvline(
+        p["threshold"],
+        color="black",
+        linestyle="-.",
+        lw=2.0,
+        label=f"threshold = {p['threshold']:.2f}",
+        zorder=7,
+    )
+    # ax_proj.plot(p["centers"], p["median"], color="C0", lw=2, label="median (binned)")
+    # ax_proj.fill_between(p["centers"], p["low"], p["high"], color="C0", alpha=0.25)
+    # ax_proj.plot(p["centers"], p["smooth"], linestyle="--", color="C2", lw=2, label="smoothed median")
+    # ax_proj.axvline(p["threshold"], color="C2", linestyle="--", lw=1.6, label=f"thr={p['threshold']:.2f}")
+    # ax_proj.set_xlim(*PROJ_X_LIMITS[key])
 
     ax_der = ax_proj.twinx()
-    ax_der.plot(p["centers"], p["derivative"], color="C3", lw=1.4, alpha=0.9, label="Derivative")
+    #ax_der.plot(p["centers"], p["derivative"], color="C3", lw=1.4, alpha=0.9, label="Derivative")
+    ax_der.plot(
+        p["centers"],
+        p["derivative"],
+        color="C3",
+        #linestyle=":",
+        lw=1.4, #1.8,
+        alpha=0.9,
+        #label="Derivative",
+    )
     ax_der.axhline(0.0, linestyle=":", color="C3", alpha=0.6)
     ax_der.set_ylabel("Derivative (arb. units)", color="C3", fontsize=DERIV_LABEL_FONT)
     ax_der.tick_params(axis="y", labelcolor="C3", labelsize=TICK_FONT)
@@ -710,14 +775,18 @@ def draw_quantity_block(fig, outer_cell, p, key, y_label, row):
     if SHOW_PANEL_LEGENDS:
         l1, lab1 = ax_proj.get_legend_handles_labels()
         l2, lab2 = ax_der.get_legend_handles_labels()
-        ax_proj.legend(
+        leg = ax_proj.legend(
             l1 + l2, lab1 + lab2,
             loc=proj_loc,
             fontsize=LEGEND_FONT,
             frameon=True,
-            framealpha=0.85,
+            framealpha=0.90, #0.85
             facecolor="white",
+            borderpad=0.45,
+            handlelength=2.8,
+            labelspacing=0.45,
         )
+        leg.set_zorder(100)
 
     return ax_main, ax_proj, ax_der
 

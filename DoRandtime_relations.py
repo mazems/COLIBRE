@@ -65,187 +65,191 @@ def save_fig(fig, fname):
     plt.close(fig)
 
 # binned median + 16/84 percentiles plotting helper without loess (used in many places)
-# def plot_dor_vs_quantity(x, y, xlabel, fname, color_arr=None, xlim=None):
-#     ok = np.isfinite(x) & np.isfinite(y)
-#     if ok.sum() < 6:
-#         print(f"Skipping {fname} — insufficient finite points ({ok.sum()}).")
-#         return
-
-#     fig, ax = plt.subplots(figsize=(7,5))
-
-#     if color_arr is not None:
-#         order = np.argsort(color_arr[ok])[::-1]
-#         # sc = ax.scatter(x[ok][order], y[ok][order], c=color_arr[ok][order], s=12, alpha=0.5, vmin=8, vmax=float(np.nanpercentile(m_compactness, 99))) #, vmin=-0.2, vmax=0.2)
-#         norm = TwoSlopeNorm(
-#             vmin=8.5, #0.05,
-#             vcenter=9.75, #0.15,
-#             vmax=10.5, #0.25
-#         )
-
-#         print("colour quantity range:",
-#         np.nanmin(color_arr[ok]),
-#         np.nanmax(color_arr[ok]))
-
-#         sc = ax.scatter(
-#             x[ok][order],
-#             y[ok][order],
-#             c=color_arr[ok][order],
-#             s=12,
-#             alpha=0.5,
-#             cmap="RdBu_r",
-#             norm=norm
-#         )
-#         cbar = plt.colorbar(sc, ax=ax)
-#         cbar.set_label(r"$\log_{10}(\Sigma_{1.5}\,[M_\odot\,\mathrm{kpc}^{-1.5}])$") #r"$\log_{10}(\Sigma_{1.5}\,[M_\odot\,\mathrm{kpc}^{-1.5}])$" # "[Z/H]" 
-#         cbar.solids.set_alpha(1)
-#     else:
-#         ax.scatter(x[ok], y[ok], s=12, alpha=0.7)
-
-#     q = np.linspace(0, 100, 15)
-#     bins = np.unique(np.percentile(x[ok], q))
-#     if bins.size < 2:
-#         save_fig(fig, fname)
-#         return
-
-#     xc = 0.5 * (bins[:-1] + bins[1:])
-#     med = np.full_like(xc, np.nan, dtype=float)
-#     lo = np.full_like(xc, np.nan, dtype=float)
-#     hi = np.full_like(xc, np.nan, dtype=float)
-
-#     for i in range(len(xc)):
-#         sel = (x >= bins[i]) & (x < bins[i+1]) & ok
-#         if sel.sum() > 4:
-#             vals = y[sel]
-#             med[i] = np.nanmedian(vals)
-#             lo[i] = np.nanpercentile(vals, 16)
-#             hi[i] = np.nanpercentile(vals, 84)
-
-#     finite_med = np.isfinite(med)
-#     if finite_med.sum() > 0:
-#         ax.plot(xc[finite_med], med[finite_med], color="black", lw=2)
-#         ax.fill_between(xc[finite_med], lo[finite_med], hi[finite_med], color="black", alpha=0.2)
-
-#     ax.axhline(EXTREME_DOR, color='C1', linestyle='--', lw=1.5, label=f"relic threshold DoR={EXTREME_DOR}")
-#     #if isinstance(xlabel, str) and "compact" in xlabel.lower():
-#     # ax.axvline(COMPACTNESS_CUT, color='black', linestyle='--', lw=1.5,
-#     #             label=fr"compactness threshold $\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}}))={COMPACTNESS_CUT}$")
-
-#     ax.legend(fontsize=8)
-#     ax.set_xlabel(xlabel)
-#     ax.set_ylabel("DoR")
-#     ax.set_ylim(0, 1)
-#     if xlim is not None:
-#         ax.set_xlim(*xlim)
-#     ax.grid(True)
-
-#     save_fig(fig, fname)
-
-def _plot_dor_vs_quantity_core(
-    ax,
-    x,
-    y,
-    xlabel,
-    color_arr=None,
-    cbar_label=r"$f_\mathrm{ex-situ}$",
-    show_compactness_line=False,
-):
+def plot_dor_vs_quantity(x, y, xlabel, fname, color_arr=None, xlim=None, title=None):
     ok = np.isfinite(x) & np.isfinite(y)
-    if color_arr is not None:
-        ok &= np.isfinite(color_arr)
-
     if ok.sum() < 6:
-        print(f"Skipping {xlabel} — insufficient finite points ({ok.sum()}).")
-        return None
+        print(f"Skipping {fname} — insufficient finite points ({ok.sum()}).")
+        return
 
-    sc = None
+    fig, ax = plt.subplots(figsize=(7,5))
 
     if color_arr is not None:
-        order = np.argsort(color_arr[ok])   # ascending, exactly as before
+        order = np.argsort(color_arr[ok])[::-1]
+        # sc = ax.scatter(x[ok][order], y[ok][order], c=color_arr[ok][order], s=12, alpha=0.5, vmin=8, vmax=float(np.nanpercentile(m_compactness, 99))) #, vmin=-0.2, vmax=0.2)
+        norm = TwoSlopeNorm(
+            vmin=0.05, #8.5,
+            vcenter=0.15, #9.75,
+            vmax=0.25, #10.5
+        )
+
+        print("colour quantity range:",
+        np.nanmin(color_arr[ok]),
+        np.nanmax(color_arr[ok]))
+
         sc = ax.scatter(
             x[ok][order],
             y[ok][order],
             c=color_arr[ok][order],
             linewidths=0,
             rasterized=True,
-            s=8,
-            alpha=0.15
+            s=10,
+            alpha=0.7,
+            cmap="RdBu_r",
+            norm=norm
         )
+        cbar = plt.colorbar(sc, ax=ax)
+        cbar.set_label(r"$[\mathrm{Mg}/\mathrm{Fe}]$", fontsize=18) #r"$\log_{10}(\Sigma_{1.5}/(\mathrm{M}_\odot\,\mathrm{kpc}^{-1.5}))$" # "[Z/H]" 
+        cbar.solids.set_alpha(1)
     else:
-        ax.scatter(x[ok], y[ok], s=12, alpha=0.7)
+        ax.scatter(x[ok], y[ok], s=12, alpha=0.7, rasterized=True)
 
-    # binned median using percentile bins in X
     q = np.linspace(0, 100, 15)
-    bins = np.percentile(x[ok], q)
-    bins = np.unique(bins)
+    bins = np.unique(np.percentile(x[ok], q))
+    if bins.size < 2:
+        save_fig(fig, fname)
+        return
 
-    if bins.size >= 2:
-        xc = 0.5 * (bins[:-1] + bins[1:])
-        med = np.full_like(xc, np.nan, dtype=float)
-        lo = np.full_like(xc, np.nan, dtype=float)
-        hi = np.full_like(xc, np.nan, dtype=float)
+    xc = 0.5 * (bins[:-1] + bins[1:])
+    med = np.full_like(xc, np.nan, dtype=float)
+    lo = np.full_like(xc, np.nan, dtype=float)
+    hi = np.full_like(xc, np.nan, dtype=float)
 
-        for i in range(len(xc)):
-            sel = (x >= bins[i]) & (x < bins[i + 1]) & ok
-            if sel.sum() > 4:
-                vals = y[sel]
-                med[i] = np.nanmedian(vals)
-                lo[i] = np.nanpercentile(vals, 16)
-                hi[i] = np.nanpercentile(vals, 84)
+    for i in range(len(xc)):
+        sel = (x >= bins[i]) & (x < bins[i+1]) & ok
+        if sel.sum() > 4:
+            vals = y[sel]
+            med[i] = np.nanmedian(vals)
+            lo[i] = np.nanpercentile(vals, 16)
+            hi[i] = np.nanpercentile(vals, 84)
 
-        finite_med = np.isfinite(med)
-        if finite_med.sum() > 0:
-            ax.plot(xc[finite_med], med[finite_med], color="black", lw=2)
-            ax.fill_between(
-                xc[finite_med],
-                lo[finite_med],
-                hi[finite_med],
-                color="black",
-                alpha=0.2
-            )
+    finite_med = np.isfinite(med)
+    if finite_med.sum() > 0:
+        ax.plot(xc[finite_med], med[finite_med], color="black", lw=2)
+        ax.fill_between(xc[finite_med], lo[finite_med], hi[finite_med], color="black", alpha=0.2)
 
-    ax.axhline(
-        EXTREME_DOR,
-        color="C1",
-        linestyle="--",
-        lw=1.5,
-        label=f"relic threshold DoR={EXTREME_DOR}"
-    )
+    ax.axhline(EXTREME_DOR, color='C1', linestyle='--', lw=1.5, label=fr"DoR={EXTREME_DOR}")# DoR={EXTREME_DOR}")
+    #if isinstance(xlabel, str) and "compact" in xlabel.lower():
+    # ax.axvline(COMPACTNESS_CUT, color='black', linestyle='--', lw=1.5,
+    #             label="compactness threshold") #$\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}}))={COMPACTNESS_CUT}$")
 
-    if show_compactness_line:
-        ax.axvline(
-            COMPACTNESS_CUT,
-            color="black",
-            linestyle="--",
-            lw=1.5,
-            label=f"compactness threshold\n" fr"$\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}}))={COMPACTNESS_CUT}$"
-        )
-
-    ax.legend(fontsize=10)
-    ax.set_xlabel(xlabel, fontsize=13)
-    ax.set_ylabel("DoR", fontsize=13)
+    if title is not None:
+        ax.set_title(title, fontsize=20)
+    ax.legend(fontsize=13, loc='upper right')
+    ax.set_xlabel(xlabel, fontsize=18)
+    ax.set_ylabel("DoR", fontsize=18)
     ax.set_ylim(0, 1)
+    if xlim is not None:
+        ax.set_xlim(*xlim)
     ax.grid(True)
 
-    return sc
-
-
-def plot_dor_vs_quantity(x, y, xlabel, fname, color_arr=None):
-    fig, ax = plt.subplots(figsize=(7, 5))
-
-    sc = _plot_dor_vs_quantity_core(
-        ax=ax,
-        x=x,
-        y=y,
-        xlabel=xlabel,
-        color_arr=color_arr
-    )
-
-    if sc is not None and color_arr is not None:
-        cbar = fig.colorbar(sc, ax=ax)
-        cbar.set_label(r"$f_\mathrm{ex-situ}$")
-        cbar.solids.set_alpha(1)
-
     save_fig(fig, fname)
+
+# def _plot_dor_vs_quantity_core(
+#     ax,
+#     x,
+#     y,
+#     xlabel,
+#     color_arr=None,
+#     cbar_label=r"$f_\mathrm{ex-situ}$",
+#     show_compactness_line=False,
+# ):
+#     ok = np.isfinite(x) & np.isfinite(y)
+#     if color_arr is not None:
+#         ok &= np.isfinite(color_arr)
+
+#     if ok.sum() < 6:
+#         print(f"Skipping {xlabel} — insufficient finite points ({ok.sum()}).")
+#         return None
+
+#     sc = None
+
+#     if color_arr is not None:
+#         order = np.argsort(color_arr[ok])   # ascending, exactly as before
+#         sc = ax.scatter(
+#             x[ok][order],
+#             y[ok][order],
+#             c=color_arr[ok][order],
+#             linewidths=0,
+#             rasterized=True,
+#             s=8,
+#             alpha=0.15
+#         )
+#     else:
+#         ax.scatter(x[ok], y[ok], s=12, alpha=0.7)
+
+#     # binned median using percentile bins in X
+#     q = np.linspace(0, 100, 15)
+#     bins = np.percentile(x[ok], q)
+#     bins = np.unique(bins)
+
+#     if bins.size >= 2:
+#         xc = 0.5 * (bins[:-1] + bins[1:])
+#         med = np.full_like(xc, np.nan, dtype=float)
+#         lo = np.full_like(xc, np.nan, dtype=float)
+#         hi = np.full_like(xc, np.nan, dtype=float)
+
+#         for i in range(len(xc)):
+#             sel = (x >= bins[i]) & (x < bins[i + 1]) & ok
+#             if sel.sum() > 4:
+#                 vals = y[sel]
+#                 med[i] = np.nanmedian(vals)
+#                 lo[i] = np.nanpercentile(vals, 16)
+#                 hi[i] = np.nanpercentile(vals, 84)
+
+#         finite_med = np.isfinite(med)
+#         if finite_med.sum() > 0:
+#             ax.plot(xc[finite_med], med[finite_med], color="black", lw=2)
+#             ax.fill_between(
+#                 xc[finite_med],
+#                 lo[finite_med],
+#                 hi[finite_med],
+#                 color="black",
+#                 alpha=0.2
+#             )
+
+#     ax.axhline(
+#         EXTREME_DOR,
+#         color="C1",
+#         linestyle="--",
+#         lw=1.5,
+#         label=f"relic threshold DoR={EXTREME_DOR}"
+#     )
+
+#     if show_compactness_line:
+#         ax.axvline(
+#             COMPACTNESS_CUT,
+#             color="black",
+#             linestyle="--",
+#             lw=1.5,
+#             label=f"compactness threshold\n" fr"$\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}}))={COMPACTNESS_CUT}$"
+#         )
+
+#     ax.legend(fontsize=10)
+#     ax.set_xlabel(xlabel, fontsize=13)
+#     ax.set_ylabel("DoR", fontsize=13)
+#     ax.set_ylim(0, 1)
+#     ax.grid(True)
+
+#     return sc
+
+
+# def plot_dor_vs_quantity(x, y, xlabel, fname, color_arr=None):
+#     fig, ax = plt.subplots(figsize=(7, 5))
+
+#     sc = _plot_dor_vs_quantity_core(
+#         ax=ax,
+#         x=x,
+#         y=y,
+#         xlabel=xlabel,
+#         color_arr=color_arr
+#     )
+
+#     if sc is not None and color_arr is not None:
+#         cbar = fig.colorbar(sc, ax=ax)
+#         cbar.set_label(r"$f_\mathrm{ex-situ}$")
+#         cbar.solids.set_alpha(1)
+
+#     save_fig(fig, fname)
 
 # plotting helper with loess
 def loess_coloured_dor_vs_quantity(xvals, yvals, zvals, xlabel, fname,
@@ -332,25 +336,25 @@ def loess_coloured_dor_vs_quantity(xvals, yvals, zvals, xlabel, fname,
 
     fig, ax = plt.subplots(figsize=(7, 5))
     # background data
-    ax.scatter(x_in, y_in, s=5, color="lightgrey", alpha=0.8, zorder=0)
+    ax.scatter(x_in, y_in, s=5, color="lightgrey", alpha=0.8, zorder=0, rasterized=True)
     # loess field
-    im = ax.pcolormesh(Xg, Yg, Zmask, shading="auto", cmap="viridis", vmin=vmin, vmax=vmax, zorder=1)
+    im = ax.pcolormesh(Xg, Yg, Zmask, shading="auto", cmap="viridis", vmin=vmin, vmax=vmax, zorder=1, rasterized=True)
     cbar = fig.colorbar(im, ax=ax)
     cbar.set_label(cbar_label or r"$\log_{10}(\mathrm{sSFR}\ /\ \mathrm{yr}^{-1})$")
 
     if idx_inside.size > 0:
         ax.scatter(pts_grid[idx_inside, 0], pts_grid[idx_inside, 1],
-                   s=1, c="k", alpha=0.03, linewidths=0)
+                   s=1, c="k", alpha=0.03, linewidths=0, rasterized=True)
 
     ax.axhline(EXTREME_DOR, color="C1", linestyle="--", lw=1.5,
-               label=f"relic threshold DoR={EXTREME_DOR}")
+               label=f"DoR={EXTREME_DOR}")
     if isinstance(xlabel, str) and "compact" in xlabel.lower():
         ax.axvline(COMPACTNESS_CUT, color="black", linestyle="--", lw=1.5,
-                   label=fr"CMG threshold $\log_{10}\Sigma_{{1.5}}={COMPACTNESS_CUT}$")
+                   label="compactness threshold")
 
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel("DoR")
-    ax.legend(fontsize=8)
+    ax.set_xlabel(xlabel, fontsize=18)
+    ax.set_ylabel("DoR", fontsize=18)
+    ax.legend(fontsize=13)
     ax.grid(True)
 
     # binned median using percentile bins in X (so each bin contains variable counts)
@@ -490,17 +494,311 @@ def loess_2d(x1, y1, z, frac=0.5, degree=1, npoints=None, xout=None, yout=None, 
         wout[j] = biWeights[0] if biWeights.size > 0 else 1.0
     return zout, wout
 
+def combined_loess_dor_vs_quantity(
+    xvals_list,
+    yvals,
+    zvals,
+    xlabels,
+    fname,
+    nx=250,
+    ny=200,
+):
+    """
+    Create a 3-panel LOESS figure showing zvals as a smoothed field
+    in (x, DoR) space.
+    """
+
+    fig = plt.figure(figsize=(18, 5))
+    gs = fig.add_gridspec(
+        1, 4,
+        width_ratios=[1, 1, 1, 0.05],
+        wspace=0.10
+    )
+
+    axes = [
+        fig.add_subplot(gs[0, 0]),
+        fig.add_subplot(gs[0, 1]),
+        fig.add_subplot(gs[0, 2]),
+    ]
+    cax = fig.add_subplot(gs[0, 3])
+
+    ims = []
+
+    for i, (xvals, xlabel, ax) in enumerate(
+        zip(xvals_list, xlabels, axes)
+    ):
+
+        ok = (
+            np.isfinite(xvals) &
+            np.isfinite(yvals) &
+            np.isfinite(zvals)
+        )
+
+        if ok.sum() < 6:
+            print(
+                f"LOESS panel {i}: too few finite points "
+                f"({ok.sum()})"
+            )
+            continue
+
+        x_in = np.asarray(xvals[ok], dtype=float)
+        y_in = np.asarray(yvals[ok], dtype=float)
+        z_in = np.asarray(zvals[ok], dtype=float)
+
+        # --------------------------------------------------
+        # Grid
+        # --------------------------------------------------
+
+        pad_x = 0.05 * (
+            np.nanmax(x_in) - np.nanmin(x_in) + 1e-6
+        )
+        pad_y = 0.05 * (
+            np.nanmax(y_in) - np.nanmin(y_in) + 1e-6
+        )
+
+        xg = np.linspace(
+            np.nanmin(x_in) - pad_x,
+            np.nanmax(x_in) + pad_x,
+            nx
+        )
+
+        yg = np.linspace(
+            np.nanmin(y_in) - pad_y,
+            np.nanmax(y_in) + pad_y,
+            ny
+        )
+
+        Xg, Yg = np.meshgrid(xg, yg)
+
+        pts_grid = np.column_stack(
+            (Xg.ravel(), Yg.ravel())
+        )
+
+        # --------------------------------------------------
+        # Restrict LOESS to region containing data
+        # --------------------------------------------------
+
+        tree_data = KDTree(
+            np.column_stack((x_in, y_in))
+        )
+
+        d_grid, _ = tree_data.query(
+            pts_grid, k=1
+        )
+
+        d_data, _ = tree_data.query(
+            np.column_stack((x_in, y_in)),
+            k=2
+        )
+
+        if (
+            d_data.ndim == 2
+            and d_data.shape[1] >= 2
+        ):
+            typical_spacing = float(
+                np.nanpercentile(d_data[:, 1], 95)
+            )
+        else:
+            typical_spacing = float(
+                np.nanmedian(d_grid)
+            )
+
+        d_thresh = max(
+            typical_spacing * 1.3,
+            1e-6
+        )
+
+        inside_mask = d_grid <= d_thresh
+        idx_inside = np.nonzero(inside_mask)[0]
+
+        # --------------------------------------------------
+        # Evaluate LOESS
+        # --------------------------------------------------
+
+        Zflat = np.full(
+            pts_grid.shape[0],
+            np.nan,
+            dtype=float
+        )
+
+        if idx_inside.size > 0:
+
+            xout = pts_grid[idx_inside, 0]
+            yout = pts_grid[idx_inside, 1]
+
+            frac_loess = 0.01
+            degree = 1
+
+            Zflat_inside, _ = loess_2d(
+                x_in,
+                y_in,
+                z_in,
+                frac=frac_loess,
+                degree=degree,
+                xout=xout,
+                yout=yout
+            )
+
+            Zflat[idx_inside] = Zflat_inside
+
+        Zgrid = Zflat.reshape((ny, nx))
+        Zmask = np.ma.masked_invalid(Zgrid)
+
+        # --------------------------------------------------
+        # Binned median + 16th-84th percentile relation
+        # --------------------------------------------------
+
+        q = np.linspace(0, 100, 15)
+        bins = np.unique(np.percentile(x_in, q))
+
+        if bins.size >= 2:
+
+            xc = 0.5 * (bins[:-1] + bins[1:])
+
+            med = np.full_like(xc, np.nan, dtype=float)
+            lo = np.full_like(xc, np.nan, dtype=float)
+            hi = np.full_like(xc, np.nan, dtype=float)
+
+            for j in range(len(xc)):
+
+                sel = (
+                    (x_in >= bins[j]) &
+                    (x_in < bins[j + 1])
+                )
+
+                if np.sum(sel) > 4:
+                    vals = y_in[sel]
+
+                    med[j] = np.nanmedian(vals)
+                    lo[j] = np.nanpercentile(vals, 16)
+                    hi[j] = np.nanpercentile(vals, 84)
+
+            finite_med = np.isfinite(med)
+
+        else:
+            finite_med = np.zeros(0, dtype=bool)
+
+        # --------------------------------------------------
+        # Same colour scale for all panels
+        # --------------------------------------------------
+
+        im = ax.pcolormesh(
+            Xg,
+            Yg,
+            Zmask,
+            shading="auto",
+            cmap="viridis",
+            vmin=0.0,
+            vmax=0.6,
+            rasterized=True
+        )
+
+        ims.append(im)
+
+        # --------------------------------------------------
+        # Overlay population median + 16-84 percentile range
+        # --------------------------------------------------
+
+        if finite_med.sum() > 0:
+
+            ax.fill_between(
+                xc[finite_med],
+                lo[finite_med],
+                hi[finite_med],
+                color="black",
+                alpha=0.20,
+                zorder=4,
+            )
+
+            # White underlay so the median remains visible over
+            # both the LOESS field and the percentile band.
+            ax.plot(
+                xc[finite_med],
+                med[finite_med],
+                color="white",
+                lw=4.0,
+                zorder=5,
+            )
+
+            ax.plot(
+                xc[finite_med],
+                med[finite_med],
+                color="black",
+                lw=2.0,
+                label="median (binned)",
+                zorder=6,
+            )
+
+        # --------------------------------------------------
+        # Reference lines
+        # --------------------------------------------------
+
+        ax.axhline(
+            EXTREME_DOR,
+            color="C1",
+            linestyle="--",
+            lw=1.5,
+            label=r"$\text{DoR}=0.6$"
+        )
+        if i == 2:
+            ax.axvline(
+                COMPACTNESS_CUT,
+                color="black",
+                linestyle="--",
+                lw=1.5,
+                label="compactness threshold"
+            )
+        ax.set_xlabel(
+            xlabel,
+            fontsize=18
+        )
+        if i == 0:
+            ax.set_ylabel(
+                "DoR",
+                fontsize=18
+            )
+        else:
+            ax.set_ylabel("")
+            ax.tick_params(labelleft=False)
+        ax.set_ylim(0, 1)
+        ax.grid(True)
+        if i == 2:
+            ax.legend(fontsize=13)
+
+    # ------------------------------------------------------
+    # Shared colourbar
+    # ------------------------------------------------------
+    if ims:
+        cbar = fig.colorbar(
+            ims[0],
+            cax=cax
+        )
+        cbar.set_label(
+            r"$f_\mathrm{ex-situ}$",
+            fontsize=16
+        )
+    fig.savefig(
+        os.path.join(outdir, fname),
+        dpi=250,
+        bbox_inches="tight"
+    )
+    plt.close(fig)
+    print(
+        "Saved combined LOESS plot:",
+        os.path.join(outdir, fname)
+    )
+
 # scatter plot helper
 def scatter_coloured_mass_size(xvals, yvals, zvals, fname, cbar_label=None):
     fig, ax = plt.subplots(figsize=(8,6))
     ax.scatter(logM, logR, s=6, color="lightgrey", alpha=0.5, label=f"simulated galaxies at $z=0$")
     finite = np.isfinite(zvals)
     if np.any(finite):
-        sc = ax.scatter(xvals[finite], yvals[finite], c=zvals[finite], cmap="viridis", s=18, edgecolors="none", alpha=0.9)
+        sc = ax.scatter(xvals[finite], yvals[finite], c=zvals[finite], cmap="viridis", s=18, edgecolors="none", alpha=0.9, rasterized=True)
         cbar = fig.colorbar(sc, ax=ax)
         cbar.set_label(cbar_label if cbar_label is not None else fname)
     if np.any(~finite):
-        ax.scatter(xvals[~finite], yvals[~finite], color="lightgrey", s=8, alpha=0.6, label="missing")
+        ax.scatter(xvals[~finite], yvals[~finite], color="lightgrey", s=8, alpha=0.6, label="missing", rasterized=True)
     xm = np.linspace(np.nanmin(logM)-0.1, np.nanmax(logM)+0.1, 400)
     yr = (xm - COMPACTNESS_CUT) / 1.5
     ax.plot(xm, yr, linestyle='--', color='black', label=fr"compactness threshold $\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}}))={COMPACTNESS_CUT}$")
@@ -568,19 +866,19 @@ def loess_coloured_mass_size(xvals, yvals, zvals, fname, cbar_label=None, nx=300
 
     fig, ax = plt.subplots(figsize=(8,6))
     #ax.scatter(logM, logR, s=6, color="lightgrey", alpha=0.5, label=f"simulated galaxies at $z=0$")
-    im = ax.pcolormesh(Xg, Yg, Zmask, shading='auto', cmap='viridis', vmin=vmin, vmax=vmax)
+    im = ax.pcolormesh(Xg, Yg, Zmask, shading='auto', cmap='viridis', vmin=vmin, vmax=vmax, rasterized=True)
     cbar = fig.colorbar(im, ax=ax)
     # cbar.set_label(cbar_label if cbar_label is not None else fname)
     label = CBAR_LABELS.get(cbar_label, cbar_label)
-    cbar.set_label(label if label is not None else fname)
+    cbar.set_label(label if label is not None else fname, fontsize=18)
     if idx_inside.size > 0:
-        ax.scatter(pts_grid[idx_inside,0], pts_grid[idx_inside,1], s=1, c='k', alpha=0.03, linewidths=0)
+        ax.scatter(pts_grid[idx_inside,0], pts_grid[idx_inside,1], s=1, c='k', alpha=0.03, linewidths=0, rasterized=True)
     xm = np.linspace(np.nanmin(logM)-0.1, np.nanmax(logM)+0.1, 400)
     yr = (xm - COMPACTNESS_CUT) / 1.5
-    ax.plot(xm, yr, linestyle='--', color='black', label=fr"compactness threshold $\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}}))={COMPACTNESS_CUT}$")
-    ax.set_xlabel(r"$\log_{{10}}(M_\star / \mathrm{M}_\odot)$")
-    ax.set_ylabel(r"$\log_{{10}}(R_{1/2, \star} / \mathrm{kpc})$")
-    ax.legend(fontsize=11)
+    ax.plot(xm, yr, linestyle='--', color='black', label="compactness threshold")  #$\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}}))={COMPACTNESS_CUT}$")
+    ax.set_xlabel(r"$\log_{{10}}(M_\star / \mathrm{M}_\odot)$", fontsize=18)
+    ax.set_ylabel(r"$\log_{{10}}(R_{1/2, \star} / \mathrm{kpc})$", fontsize=18)
+    ax.legend(fontsize=13)
     ax.grid(True)
     save_fig(fig, fname)
 
@@ -1026,7 +1324,7 @@ print("min/max:", np.nanmin(exsitu_fracs_matched), np.nanmax(exsitu_fracs_matche
 # plot_dor_vs_quantity(m_compactness,  matched_dor, r"$\log_{10}(\Sigma_{1.5}\,[M_\odot\,\mathrm{kpc}^{-1.5}])$",           "DoR_vs_compactness.png", color_arr=m_mgfe)
 # plot_dor_vs_quantity(m_logZstar_rel,  matched_dor, "[Z/H]",           "DoR_vs_metallicity.png", color_arr=exsitu_fracs_matched)
 # plot_dor_vs_quantity(m_mgfe,  matched_dor, "[Mg/Fe]",           "DoR_vs_MgFe.png", color_arr=exsitu_fracs_matched)
-plot_dor_vs_quantity(exsitu_fracs_matched,  matched_dor, r"$f_\mathrm{ex-situ}$",           "DoR_vs_exsitu.pdf", color_arr=m_compactness)
+# plot_dor_vs_quantity(exsitu_fracs_matched,  matched_dor, r"$f_\mathrm{ex-situ}$",           "DoR_vs_exsitu.pdf", color_arr=m_compactness)
 # loess_coloured_dor_vs_quantity(m_mgfe,      matched_dor, exsitu_fracs_matched, "[Mg/Fe]",    "DoR_vs_MgFe.png", cbar_label=r"$f_\mathrm{ex-situ}$")
 # loess_coloured_dor_vs_quantity(m_age,       matched_dor, exsitu_fracs_matched, "Lum-weighted age [Gyr]",     "DoR_vs_age.png", cbar_label=r"$f_\mathrm{ex-situ}$")
 # loess_coloured_dor_vs_quantity(m_log_ssfr,       matched_dor, exsitu_fracs_matched, "lg(sSFR / yr⁻¹)",     "DoR_vs_sSFR.png", cbar_label=r"$f_\mathrm{ex-situ}$")
@@ -1036,52 +1334,68 @@ plot_dor_vs_quantity(exsitu_fracs_matched,  matched_dor, r"$f_\mathrm{ex-situ}$"
 # loess_coloured_dor_vs_quantity(log_sigma_matched,      matched_dor, exsitu_fracs_matched, r'$\lg(\sigma / \mathrm{km}\ \mathrm{s}^{-1})$',    "DoR_vs_sigma.png", cbar_label=r"$f_\mathrm{ex-situ}$")
 
 # Combined DoR vs quantity 3-figure
-fig = plt.figure(figsize=(18, 5))
-gs = fig.add_gridspec(1, 4, width_ratios=[1, 1, 1, 0.05], wspace=0.10)
-ax1 = fig.add_subplot(gs[0, 0])
-ax2 = fig.add_subplot(gs[0, 1])
-ax3 = fig.add_subplot(gs[0, 2])
-cax = fig.add_subplot(gs[0, 3])
+# fig = plt.figure(figsize=(18, 5))
+# gs = fig.add_gridspec(1, 4, width_ratios=[1, 1, 1, 0.05], wspace=0.10)
+# ax1 = fig.add_subplot(gs[0, 0])
+# ax2 = fig.add_subplot(gs[0, 1])
+# ax3 = fig.add_subplot(gs[0, 2])
+# cax = fig.add_subplot(gs[0, 3])
 
-sc1 = _plot_dor_vs_quantity_core(
-    ax1,
-    m_logZstar_rel,
+# sc1 = _plot_dor_vs_quantity_core(
+#     ax1,
+#     m_logZstar_rel,
+#     matched_dor,
+#     r"$[\mathrm{Z}/\mathrm{H}]$",
+#     color_arr=exsitu_fracs_matched
+# )
+
+# sc2 = _plot_dor_vs_quantity_core(
+#     ax2,
+#     m_mgfe,
+#     matched_dor,
+#     r"$[\mathrm{Mg}/\mathrm{Fe}]$",
+#     color_arr=exsitu_fracs_matched
+# )
+
+# sc3 = _plot_dor_vs_quantity_core(
+#     ax3,
+#     m_compactness,
+#     matched_dor,
+#     r"$\log_{10}(\Sigma_{1.5}/(\mathrm{M}_\odot\,\mathrm{kpc}^{-1.5}))$",
+#     color_arr=exsitu_fracs_matched,
+#     show_compactness_line=True
+# )
+
+# # keep y-axis only on left panel
+# ax1.set_ylabel("DoR")
+# ax2.set_ylabel("")
+# ax3.set_ylabel("")
+# ax2.tick_params(labelleft=False)
+# ax3.tick_params(labelleft=False)
+
+# # one shared colorbar on the right
+# if sc3 is not None:
+#     cbar = fig.colorbar(sc3, cax=cax)
+#     cbar.set_label(r"$f_\mathrm{ex-situ}$")
+#     cbar.solids.set_alpha(1)
+# plt.savefig(os.path.join(outdir, "combined_panels.pdf"), dpi=250, bbox_inches="tight")
+# plt.close(fig)
+
+combined_loess_dor_vs_quantity(
+    [
+        m_logZstar_rel,
+        m_mgfe,
+        m_compactness
+    ],
     matched_dor,
-    r"$[\mathrm{Z}/\mathrm{H}]$",
-    color_arr=exsitu_fracs_matched
+    exsitu_fracs_matched,
+    [
+        r"$[\mathrm{Z}/\mathrm{H}]$",
+        r"$[\mathrm{Mg}/\mathrm{Fe}]$",
+        r"$\log_{10}(\Sigma_{1.5}/(\mathrm{M}_\odot\,\mathrm{kpc}^{-1.5}))$"
+    ],
+    "combined_panels_loess.pdf"
 )
-
-sc2 = _plot_dor_vs_quantity_core(
-    ax2,
-    m_mgfe,
-    matched_dor,
-    r"$[\mathrm{Mg}/\mathrm{Fe}]$",
-    color_arr=exsitu_fracs_matched
-)
-
-sc3 = _plot_dor_vs_quantity_core(
-    ax3,
-    m_compactness,
-    matched_dor,
-    r"$\log_{10}(\Sigma_{1.5}/(\mathrm{M}_\odot\,\mathrm{kpc}^{-1.5}))$",
-    color_arr=exsitu_fracs_matched,
-    show_compactness_line=True
-)
-
-# keep y-axis only on left panel
-ax1.set_ylabel("DoR")
-ax2.set_ylabel("")
-ax3.set_ylabel("")
-ax2.tick_params(labelleft=False)
-ax3.tick_params(labelleft=False)
-
-# one shared colorbar on the right
-if sc3 is not None:
-    cbar = fig.colorbar(sc3, cax=cax)
-    cbar.set_label(r"$f_\mathrm{ex-situ}$")
-    cbar.solids.set_alpha(1)
-plt.savefig(os.path.join(outdir, "combined_panels.pdf"), dpi=250, bbox_inches="tight")
-plt.close(fig)
 
 # 3) scatter + LOESS for time columns
 for col, arr in time_matched.items():
@@ -1201,7 +1515,7 @@ for ib in range(nbins):
     # yr = (xm - COMPACTNESS_CUT) / 1.5
     # ax.plot(xm, yr, "--", color="black", lw=2, label=f"compactness = {COMPACTNESS_CUT}")
     # ax.set_xlabel("lg(Total Stellar Mass / M⊙)"); ax.set_ylabel("lg(Half Mass Radius / kpc)")
-    # ax.set_title(f"Mass-size (DoR) — mass bin [{lo:.2f},{hi:.2f})"); ax.legend(fontsize=8); ax.grid(True)
+    # ax.set_title(f"Mass-size (DoR) — mass bin [{lo:.1f},{hi:.1f})"); ax.legend(fontsize=8); ax.grid(True)
     # fname = os.path.join(bin_outdir, f"mass_size_DoR_bin_{suf}.png")
     # fig.savefig(fname, dpi=200, bbox_inches="tight"); plt.close(fig)
     # print("  Saved:", fname)
@@ -1211,9 +1525,9 @@ for ib in range(nbins):
     exsitu_xlim = (np.nanmin(matched_exsitu), np.nanmax(matched_exsitu))
 
     # For each quantity, make a small DoR vs quantity plot restricted to this bin
-    # plot_dor_vs_quantity(m_compactness[sel], matched_dor[sel],
-    #                       fr"$\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}}))$" "\n" r"$({lo:.2f} \leq \log_{10}(M_\star/\mathrm{M}_\odot) < {hi:.2f})$",
-    #                       f"DoR_vs_compactness_bin_{suf}.pdf", color_arr=m_mgfe[sel], xlim=compact_xlim)
+    plot_dor_vs_quantity(m_compactness[sel], matched_dor[sel],
+                          fr"$\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}}))$",
+                          f"DoR_vs_compactness_bin_{suf}.pdf", color_arr=m_mgfe[sel], xlim=compact_xlim, title=fr"${lo:.1f} \leq \log_{{10}}(M_\star/\mathrm{{M}}_\odot) < {hi:.1f}$")
     # # plot_dor_vs_quantity(m_mgfe[sel], matched_dor[sel],
     # #                      f"[Mg/Fe]  [{lo:.2f},{hi:.2f})",
     # #                      f"DoR_vs_MgFe_bin_{suf}.png")
@@ -1223,9 +1537,9 @@ for ib in range(nbins):
     # # plot_dor_vs_quantity(m_log_ssfr[sel], matched_dor[sel],
     # #                      f"lg(sSFR / yr⁻¹)  [{lo:.2f},{hi:.2f})",
     # #                      f"DoR_vs_sSFR_bin_{suf}.png")
-    # plot_dor_vs_quantity(matched_exsitu[sel], matched_dor[sel],
-    #                       fr"$f_\mathrm{{ex-situ}}$ [{lo:.2f},{hi:.2f})",
-    #                       f"DoR_vs_exsitu_bin_{suf}.pdf", color_arr=m_mgfe[sel], xlim=exsitu_xlim)
+    plot_dor_vs_quantity(matched_exsitu[sel], matched_dor[sel],
+                          fr"$f_\mathrm{{ex-situ}}$",
+                          f"DoR_vs_exsitu_bin_{suf}.pdf", color_arr=m_mgfe[sel], xlim=exsitu_xlim, title=None) #fr"${lo:.1f} \leq \log_{{10}}(M_\star/\mathrm{{M}}_\odot) < {hi:.1f}$")
 
 # Save bin summary table to CSV so you can plot medians only later
 bin_summary_df = pd.DataFrame(bin_summary_rows)
@@ -1268,8 +1582,8 @@ if (bin_summary_df is not None) and (len(bin_summary_df) > 0):
     fig, ax = plt.subplots(figsize=(8,5))
     ax.errorbar(x, y, yerr=[y_lo, y_hi], fmt='o-', capsize=3, lw=1.5, label='median DoR (16/84)')
     # ax.axhline(EXTREME_DOR, color='C1', linestyle='--', lw=1.5, label=f"extreme threshold DoR={EXTREME_DOR}")
-    ax.set_xlabel(r"$\log_{10}(M_\star / \mathrm{M}_\odot)$", fontsize=13)
-    ax.set_ylabel("Median DoR", fontsize=13)
+    ax.set_xlabel(r"$\log_{10}(M_\star / \mathrm{M}_\odot)$", fontsize=18)
+    ax.set_ylabel("Median DoR", fontsize=18)
     ax.set_ylim(-0.05, 1.05)
     ax.grid(True)
     # annotate counts above points
@@ -1351,7 +1665,7 @@ for idx, (thr, col) in enumerate(zip(thr_list, colors)):
         )
         
     # Set right-axis limits using the global maximum over all thresholds
-    ax2.set_ylabel('Number of SAGs', fontsize=13)
+    ax2.set_ylabel('Number of SAGs', fontsize=18)
     # ax2.set_ylim(0, max(3, int(maxcnt_all) * 1.15 if maxcnt_all > 0 else 3))
     count_top = max(3, int(maxcnt_all) * 1.15 if maxcnt_all > 0 else 3)
     count_bottom = -count_top * (0.05 / 1.05)
@@ -1385,7 +1699,7 @@ for idx, (thr, col) in enumerate(zip(thr_list, colors)):
     # combine legends
     h1, l1 = ax.get_legend_handles_labels()
     h2, l2 = ax2.get_legend_handles_labels()
-    ax.legend(h1 + h2, l1 + l2, loc='upper right', fontsize=11)
+    ax.legend(h1 + h2, l1 + l2, loc='upper right', fontsize=13)
 
     out_sum = os.path.join(bin_outdir, "DoR_median_vs_mass_bin_with_extremes.pdf")
     fig.savefig(out_sum, dpi=200, bbox_inches="tight")
@@ -1420,8 +1734,8 @@ ax.errorbar(
     label='median DoR (16/84)'
 )
 
-ax.set_xlabel(r"$\log_{10}(M_\star / \mathrm{M}_\odot)$", fontsize=13)
-ax.set_ylabel("Median DoR", fontsize=13)
+ax.set_xlabel(r"$\log_{10}(M_\star / \mathrm{M}_\odot)$", fontsize=18)
+ax.set_ylabel("Median DoR", fontsize=18)
 ax.set_ylim(-0.05, 1.05)
 ax.grid(True)
 
@@ -1430,25 +1744,6 @@ ax.grid(True)
 # --------------------------------------------------------------
 ax2 = ax.twinx()
 
-ax_text = fig.add_axes(ax.get_position(), frameon=False)
-ax_text.set_xlim(ax.get_xlim())
-ax_text.set_ylim(ax.get_ylim())
-ax_text.set_xticks([])
-ax_text.set_yticks([])
-ax_text.set_zorder(100)
-
-# annotate galaxy counts
-for xi, yi, cnt in zip(x, y, counts):
-    ax_text.text(
-        xi,
-        yi - 0.04,
-        f"{int(cnt)}",
-        ha='center',
-        va='top',
-        fontsize=8,
-        zorder=100,
-        alpha=0.7
-    )
 # Put Number of SAGs on the left and Median DoR on the right
 ax.yaxis.set_label_position("right")
 ax.yaxis.tick_right()
@@ -1480,7 +1775,7 @@ ax2.plot(
     linestyle='--',
     ms=6,
     color='C1',
-    label=f"non-compact\n" fr'($\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}})) \geq {COMPACTNESS_CUT}$)'
+    label=f"compact\n" fr'($\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}})) \geq {COMPACTNESS_CUT}$)'
 )
 
 ax2.plot(
@@ -1536,7 +1831,7 @@ maxcnt_all = max(
     np.nanmax(diffuse_counts)
 )
 
-ax2.set_ylabel('Number of SAGs', fontsize=13)
+ax2.set_ylabel('Number of SAGs', fontsize=18)
 count_top = max(3, int(maxcnt_all) * 1.15 if maxcnt_all > 0 else 3)
 count_bottom = -count_top * (0.05 / 1.05)
 
@@ -1550,10 +1845,31 @@ ax.legend(
     h1 + h2,
     l1 + l2,
     loc='upper right',
-    fontsize=11
+    bbox_to_anchor=(1.00, 1.01),
+    fontsize=12
 )
 
 fig.tight_layout()
+
+ax_text = fig.add_axes(ax.get_position(), frameon=False)
+ax_text.set_xlim(ax.get_xlim())
+ax_text.set_ylim(ax.get_ylim())
+ax_text.set_xticks([])
+ax_text.set_yticks([])
+ax_text.set_zorder(100)
+
+# annotate galaxy counts
+for xi, yi, cnt in zip(x, y, counts):
+    ax_text.text(
+        xi,
+        yi - 0.04,
+        f"{int(cnt)}",
+        ha='center',
+        va='top',
+        fontsize=8,
+        zorder=100,
+        alpha=0.7
+    )
 
 out_compact = os.path.join(
     bin_outdir,
@@ -1989,8 +2305,8 @@ if ("BH_log10_ratio_median" in bdf.columns) or ("BH_ratio_median" in bdf.columns
 
     fig, ax = plt.subplots(figsize=(8,5))
     ax.errorbar(x, med, yerr=[lo, hi], fmt='o-', capsize=3, lw=1.5, zorder=100, label='median (16/84)')
-    ax.set_xlabel(r"$\log_{10}(M_\star / \mathrm{M}_\odot)$", fontsize=13)
-    ax.set_ylabel(r"$\log_{10}(M_{\mathrm{BH}} / M_\star)$", fontsize=13)
+    ax.set_xlabel(r"$\log_{10}(M_\star / \mathrm{M}_\odot)$", fontsize=18)
+    ax.set_ylabel(r"$\log_{10}(M_{\mathrm{BH}} / M_\star)$", fontsize=18)
     ax.grid(True)
 
     # --- Overlay INDIVIDUAL extreme relic points (use in-memory matched arrays) ---
@@ -2019,6 +2335,19 @@ if ("BH_log10_ratio_median" in bdf.columns) or ("BH_ratio_median" in bdf.columns
     # raw and corrected BH masses on the matched subset
     bh_mass_raw_sel = bh_mass_raw[select][mask_pos] * Mu
     bh_mass_corr_sel = bh_mass.copy()   # already corrected
+
+    #Counting the affected galaxies in the entire sample
+    bh_was_corrected_all = (
+        (bh_mass_raw_sel == 0) &
+        (bh_mass_corr_sel > 0)
+    )
+    print(
+        "All selected galaxies affected by BH correction:",
+        np.sum(bh_was_corrected_all),
+        "/",
+        len(bh_was_corrected_all),
+        f"({100*np.sum(bh_was_corrected_all)/len(bh_was_corrected_all):.2f}%)"
+    )
 
     bh_mass_uncorr_matched = bh_mass_raw_sel[matched_positions]
     bh_mass_corr_matched   = bh_mass_corr_sel[matched_positions]
@@ -2135,7 +2464,7 @@ if ("BH_log10_ratio_median" in bdf.columns) or ("BH_ratio_median" in bdf.columns
         # ensure plotted points are inside axes limits (prevent clipping)
         ax.relim(); ax.autoscale_view(True, True, True)
         # small y-padding so markers don't sit on axis border
-        ymin, ymax = ax.get_ylim(); pad = 0.06 * (ymax - (-7.0)); ax.set_ylim(-8.0, -1.0) # ymax + pad)
+        ymin, ymax = ax.get_ylim(); pad = 0.06 * (ymax - (-7.0)); ax.set_ylim(-4.9, -0.5) # ymax + pad)
         print(f"Plotted {int(np.sum(sel_ext))} individual extreme relics (in-memory).")
 
         # --- SRG centrals / satellites summary points ---
@@ -2168,7 +2497,8 @@ if ("BH_log10_ratio_median" in bdf.columns) or ("BH_ratio_median" in bdf.columns
                 label=label,
             )
 
-    ax.legend(loc='best', fontsize=11)
+    ax.set_ylim(-4.9, -0.5)
+    ax.legend(loc='best', fontsize=10)
     outbh = os.path.join(bin_outdir, "BHratio_log10_median_vs_mass_bin.pdf")
     fig.savefig(outbh, dpi=200, bbox_inches="tight")
     plt.close(fig)
@@ -2364,7 +2694,7 @@ ax.axvline(med_new, color="C0", linestyle=":", lw=1.5,
            label=fr"median new = {med_new:.3f}")
 
 ax.axhline(EXTREME_DOR, color="C1", linestyle="--", lw=1.5,
-           label=f"relic threshold DoR={EXTREME_DOR}")
+           label=f"DoR={EXTREME_DOR}")
 
 ax.set_xlabel(r"$f_\mathrm{ex-situ}$")
 ax.set_ylabel("DoR")
@@ -2403,3 +2733,7 @@ print("zero BH among relics, uncorrected:",
       np.count_nonzero((matched_dor > EXTREME_DOR) & (m_compactness > COMPACTNESS_CUT) & (bh_mass_uncorr_matched == 0)))
 print("zero BH among relics, corrected:",
       np.count_nonzero((matched_dor > EXTREME_DOR) & (m_compactness > COMPACTNESS_CUT) & (bh_mass_corr_matched == 0)))
+
+print(pd.DataFrame({"log_BH_Mstar": log_bh_ratio, "is_central": is_central_selected, "HaloCatalogueIndex": halo_idx, "track_id": track}).loc[np.isfinite(log_bh_ratio)].sort_values("log_BH_Mstar").head(20).to_string(index=False))
+print("Low BH to stellar mass rations among SRGs:")
+print(pd.DataFrame({"log_BH_Mstar": m_bh_ratio, "central": is_central_matched, "HaloCatalogueIndex": matched_subids}).loc[np.isfinite(m_bh_ratio) & (matched_dor > EXTREME_DOR)].sort_values("log_BH_Mstar").head(20).to_string(index=False))

@@ -1,0 +1,34 @@
+{
+  "status": "same_trackid_persistence_only_not_merger_aware",
+  "n_pairs": 1294,
+  "n_reference_srgs_in_pairs": 260,
+  "n_unique_controls": 1045,
+  "n_controls_present_z0_ascii": 550,
+  "n_controls_in_z0_reference": 550,
+  "n_controls_present_and_classified": 550,
+  "n_controls_absent_z0_ascii": 495,
+  "n_history_rows_unique_controls": 10138,
+  "n_pair_history_rows": 12431,
+  "n_epochs_scanned": 20,
+  "z0_population_counts": {
+    "unclassified": 495,
+    "compact_nonrelic": 371,
+    "noncompact_nonrelic": 159,
+    "SAG_noncompact": 20
+  },
+  "unit_factors": {
+    "stellar_mass": 1.0,
+    "rhalf_stars": 1000.0,
+    "sfr_instant": 1.0
+  },
+  "source": "ASCII snapshots; z=0 classification from SOAP-based reference catalogue",
+  "caveats": [
+    "Same TrackID at z=0 is persistence, not verified descendant tracing through mergers.",
+    "Missing TrackID is not proof of merger or destruction.",
+    "Reference catalogue non-membership is not proof of merger or non-relic outcome.",
+    "DoR is attached from z=0 reference only, never interpreted as a time series.",
+    "Additional raw ASCII properties retain unverified native units.",
+    "Reused controls may have different z_match for different SRGs; pair histories preserve each epoch.",
+    "Reference and ASCII mass/size may differ slightly, as previously validated."
+  ]
+}

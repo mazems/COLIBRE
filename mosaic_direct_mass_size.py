@@ -668,7 +668,7 @@ def draw_mosaic(data, output_stem, preview=False):
             color="black",
             linewidth=1.25,
             label=(
-                f"compactness threshold\n"
+                #f"compactness threshold" #"\n"
                 rf"$\log_{{10}}(\Sigma_{{1.5}}/(\mathrm{{M}}_\odot\,\mathrm{{kpc}}^{{-1.5}}))" rf" = {LOGSIGMA_REF}$" 
             ),
         )

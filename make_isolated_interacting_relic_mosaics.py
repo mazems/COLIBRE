@@ -55,6 +55,8 @@ INTERACTING_OUTPUT = "mosaic_interacting_relics.pdf"
 # Number of galaxies per row.
 NCOLS = 3
 
+RANDOM_SEED = 42
+CROP_FRACTION = 0.50
 
 # ============================================================
 # HELPERS
@@ -67,14 +69,51 @@ def image_path(folder: Path, hid: int, orientation: str) -> Path:
           f"SDSS_original_dust_free_{orientation}.png"
     )
 
+# def add_image(ax, path: Path):
+#     ax.set_xticks([])
+#     ax.set_yticks([])
+#     ax.set_aspect("equal")
 
-def add_image(ax, path: Path):
+#     if path.exists():
+#         ax.imshow(mpimg.imread(path))
+#     else:
+#         ax.set_facecolor("0.93")
+#         ax.text(
+#             0.5,
+#             0.5,
+#             "IMAGE\nMISSING",
+#             ha="center",
+#             va="center",
+#             fontsize=11,
+#             fontweight="bold",
+#         )
+
+#     for spine in ax.spines.values():
+#         spine.set_visible(False)
+
+def add_image(ax, path: Path, crop_fraction=CROP_FRACTION):
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_aspect("equal")
 
     if path.exists():
-        ax.imshow(mpimg.imread(path))
+        img = mpimg.imread(path)
+
+        h, w = img.shape[:2]
+
+        # Crop symmetrically around the image centre.
+        frac = crop_fraction
+        new_h = int(h * frac)
+        new_w = int(w * frac)
+
+        y0 = (h - new_h) // 2
+        y1 = y0 + new_h
+        x0 = (w - new_w) // 2
+        x1 = x0 + new_w
+
+        img = img[y0:y1, x0:x1]
+
+        ax.imshow(img)
     else:
         ax.set_facecolor("0.93")
         ax.text(
@@ -121,11 +160,12 @@ def make_mosaic(
 
     ncols = NCOLS
     nrows = math.ceil(len(ids) / ncols)
+    rng = np.random.default_rng(RANDOM_SEED)
 
     # These dimensions reproduce the compact appearance of your
     # current representative mosaic.
     fig = plt.figure(
-        figsize=(4.2 * ncols, 3.0 * nrows),
+        figsize=(4.2 * ncols, 3.4 * nrows), #3.0
         facecolor="white",
     )
 
@@ -160,60 +200,70 @@ def make_mosaic(
 
         rr, cc = divmod(i, ncols)
 
-        # Each galaxy is one horizontal pair:
-        # face-on | edge-on
-        sub = gs[rr, cc].subgridspec(
-            1,
-            2,
-            wspace=0.0,
-        )
+        # # Each galaxy is one horizontal pair:
+        # # face-on | edge-on
+        # sub = gs[rr, cc].subgridspec(
+        #     1,
+        #     2,
+        #     wspace=0.0,
+        # )
 
-        ax_face = fig.add_subplot(sub[0, 0])
-        ax_edge = fig.add_subplot(sub[0, 1])
+        # ax_face = fig.add_subplot(sub[0, 0])
+        # ax_edge = fig.add_subplot(sub[0, 1])
+
+        # add_image(
+        #     ax_face,
+        #     image_path(image_dir, hid, "face_on"),
+        # )
+        # add_image(
+        #     ax_edge,
+        #     image_path(image_dir, hid, "edge_on"),
+        # )
+
+        # Randomly choose one projection for this galaxy.
+        orientation = rng.choice(["face_on", "edge_on"])
+
+        ax = fig.add_subplot(gs[rr, cc])
 
         add_image(
-            ax_face,
-            image_path(image_dir, hid, "face_on"),
-        )
-        add_image(
-            ax_edge,
-            image_path(image_dir, hid, "edge_on"),
+            ax,
+            image_path(image_dir, hid, orientation),
         )
 
-        # Orientation labels
-        ax_face.text(
-            0.025,
-            0.95,
-            "face-on",
-            transform=ax_face.transAxes,
-            color="white",
-            fontsize=8,
-            ha="left",
-            va="top",
-            bbox=dict(
-                facecolor="black",
-                alpha=0.45,
-                edgecolor="none",
-                pad=2,
-            ),
-        )
+        # # Orientation labels
+        # ax_face.text(
+        #     0.025,
+        #     0.95,
+        #     "face-on",
+        #     transform=ax_face.transAxes,
+        #     color="white",
+        #     fontsize=8,
+        #     ha="left",
+        #     va="top",
+        #     bbox=dict(
+        #         facecolor="black",
+        #         alpha=0.45,
+        #         edgecolor="none",
+        #         pad=2,
+        #     ),
+        # )
 
-        ax_edge.text(
-            0.025,
-            0.95,
-            "edge-on",
-            transform=ax_edge.transAxes,
-            color="white",
-            fontsize=8,
-            ha="left",
-            va="top",
-            bbox=dict(
-                facecolor="black",
-                alpha=0.45,
-                edgecolor="none",
-                pad=2,
-            ),
-        )
+        # ax_edge.text(
+        #     0.025,
+        #     0.95,
+        #     "edge-on",
+        #     transform=ax_edge.transAxes,
+        #     color="white",
+        #     fontsize=8,
+        #     ha="left",
+        #     va="top",
+        #     bbox=dict(
+        #         facecolor="black",
+        #         alpha=0.45,
+        #         edgecolor="none",
+        #         pad=2,
+        #     ),
+        # )
 
         # --------------------------------------------------------
         # Properties
@@ -235,20 +285,30 @@ def make_mosaic(
         else:
             text = f"Subhalo {hid}"
 
+        ax.text(
+            0.5,
+            -0.08,
+            text,
+            transform=ax.transAxes,
+            ha="center",
+            va="top",
+            fontsize=9,
+        )
+
         # Put the text directly underneath the image pair.
         # The figure coordinates are calculated from the grid
         # position so this remains correct for any number of rows.
-        x_center = (cc + 0.5) / ncols
-        y = 1.0 - (rr + 1) / nrows + 0.005
+        # x_center = (cc + 0.5) / ncols
+        # y = 1.0 - (rr + 1) / nrows + 0.005
 
-        fig.text(
-            x_center,
-            y,
-            text,
-            ha="center",
-            va="bottom",
-            fontsize=9,
-        )
+        # fig.text(
+        #     x_center,
+        #     y,
+        #     text,
+        #     ha="center",
+        #     va="bottom",
+        #     fontsize=9,
+        # )
 
     fig.savefig(
         outfile,

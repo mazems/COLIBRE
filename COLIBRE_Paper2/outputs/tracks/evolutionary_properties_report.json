@@ -1,0 +1,27 @@
+{
+  "conversion_policy": "Factors explicitly supplied in config.UNITS; physical interpretation must be independently verified.",
+  "converted_columns": [
+    "stellar_mass_msun",
+    "rhalf_physical_kpc",
+    "sfr_msun_per_year"
+  ],
+  "n_epochs": 21,
+  "n_input_identity_rows": 4738,
+  "n_output_property_rows": 4738,
+  "n_unique_tracks": 267,
+  "note": "No SOAP/ASCII mixing; missing snapshots are not invented; zero SFR is preserved.",
+  "raw_column_suffix": "_raw",
+  "requested_raw_properties": [
+    "stellar_mass",
+    "rhalf_stars",
+    "sfr_instant",
+    "bh_mass"
+  ],
+  "source": "ASCII",
+  "unit_factors": {
+    "ascii_radius_to_physical_kpc": 1000.0,
+    "ascii_sfr_to_msun_per_year": 1.0,
+    "ascii_stellar_mass_to_msun": 1.0
+  },
+  "units_validated_by_pipeline": false
+}

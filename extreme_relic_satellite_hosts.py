@@ -273,7 +273,7 @@ if anc_sat_mask.sum() > 0:
     plt.hist(
         np.log10(anc_sat[anc_sat_mask]),
         bins=16,
-        alpha=0.6,
+        alpha=0.3,
         edgecolor="k",
         label=f"Ancient satellites (N={anc_sat_mask.sum()})",
     )
@@ -282,7 +282,7 @@ if anc_cen_mask.sum() > 0:
     plt.hist(
         np.log10(anc_cen[anc_cen_mask]),
         bins=16,
-        alpha=0.6,
+        alpha=0.3,
         edgecolor="k",
         color="red",
         label=f"Ancient centrals (N={anc_cen_mask.sum()})",
@@ -295,7 +295,7 @@ if rel_sat_mask.sum() > 0:
         bins=16,
         histtype="step",
         linewidth=1.5,
-        linestyle="--",
+        linestyle="--", #linestyle=(0, (6,2)), 
         color="C0",
         label=f"Relic satellites (N={rel_sat_mask.sum()})",
     )
@@ -306,15 +306,15 @@ if rel_cen_mask.sum() > 0:
         bins=16,
         histtype="step",
         linewidth=1.5,
-        linestyle="--",
+        linestyle="--", #linestyle=(0, (6,2)), 
         color="red",
         label=f"Relic centrals (N={rel_cen_mask.sum()})",
     )
 
-plt.xlabel(r"$\log_{10}(M_{\mathrm{200}} / \mathrm{M}_\odot)$", fontsize=13)
-plt.ylabel("N", fontsize=13)
+plt.xlabel(r"$\log_{10}(M_{\mathrm{200}} / \mathrm{M}_\odot)$", fontsize=18)
+plt.ylabel("N", fontsize=18)
 plt.grid(True, alpha=0.35)
-plt.legend(fontsize=11)
+plt.legend(fontsize=13)
 plt.tight_layout()
 
 p_overlay = os.path.join(outdir, "hist_host_mass_ancient_vs_relics_overlay.pdf")
@@ -676,7 +676,8 @@ if blue_x.size > 20:
         levels=sorted([lev95, lev68, lev50]),
         colors=["0.5", "0.3", "0.1"],
         zorder=7,
-        linewidths=1.5
+        linewidths=1.5,
+        rasterized=True
     )
 
     labels = ax.clabel(

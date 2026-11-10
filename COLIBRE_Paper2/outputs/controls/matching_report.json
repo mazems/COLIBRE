@@ -1,0 +1,39 @@
+{
+  "status": "candidate_analogues_only",
+  "n_reference_rows": 267,
+  "n_detected": 266,
+  "n_skipped_no_epoch": 1,
+  "n_skipped_low_redshift": 5,
+  "n_targets_attempted": 261,
+  "n_targets_with_five_or_requested": 258,
+  "n_targets_unmatched": 1,
+  "n_selected_pairs": 1294,
+  "n_unique_control_trackids": 1045,
+  "n_repeated_assignments": 249,
+  "n_matching_epochs": 12,
+  "matching_configuration": {
+    "n_controls_per_srg": 5,
+    "mass_tolerance_dex": 0.15,
+    "radius_tolerance_dex": 0.15,
+    "with_replacement": true,
+    "require_compact": true,
+    "require_quenched": true,
+    "apply_mass_cut": false,
+    "minimum_matching_redshift": 0.5,
+    "exclude_reference_srgs": true,
+    "random_seed": 42
+  },
+  "formation_configuration": {
+    "compactness_threshold": 9.75,
+    "compactness_comparison": ">=",
+    "quenching_method": "age_of_universe",
+    "quenching_factor": 0.2,
+    "quenching_comparison": "<",
+    "apply_mass_cut": false,
+    "minimum_stellar_mass_msun": 10000000000.0,
+    "matching_epoch_definition": "first_compact_and_quenched",
+    "red_nugget_min_redshift": 2.0,
+    "cosmology": "Planck13"
+  },
+  "note": "Controls have NOT been verified as non-relic descendants. HBT TrackID persistence and mergers require separate descendant analysis."
+}

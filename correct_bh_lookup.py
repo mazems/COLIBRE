@@ -53,6 +53,12 @@ files = sorted(
 
 lookup = {}
 
+# z=0 galaxies in the final M_star > 1e9 Msun sample
+z0_tracks = set()
+
+# galaxies that have BH_mass > 0 in at least one snapshot
+tracks_ever_with_bh = set()
+
 for fname in files:
     snap = Path(fname).name
     print(snap)
@@ -63,10 +69,27 @@ for fname in files:
         header=None,
         names=schema(fname),
         engine="python",
-        usecols=["track_id", "bh_mass", "halo_catalogue_index"]
+        usecols=["track_id", "bh_mass", "halo_catalogue_index", "stellar_mass"]
     )
 
+    z = parse_z(fname)
+
+    if np.isclose(z, 0.0):
+        z0_sel = df["stellar_mass"] > 1e9
+        z0_tracks.update(
+            df.loc[z0_sel, "track_id"].dropna().astype(np.int64).tolist()
+        )
+
+        print(
+            f"z=0 sample: {z0_sel.sum()} galaxies with "
+            f"M_star > 1e9 Msun"
+        )
+
     good = df["bh_mass"] > 0
+
+    tracks_ever_with_bh.update(
+        df.loc[good, "track_id"].dropna().astype(np.int64).tolist()
+    )
 
     # store only the first non-zero BH mass seen for each TrackID
     for _, row in df.loc[good].iterrows():
@@ -79,6 +102,41 @@ for fname in files:
             int(row.halo_catalogue_index),
             snap
         )
+
+# ------------------------------------------------------------
+# z=0 galaxies that NEVER had a non-zero BH mass
+# ------------------------------------------------------------
+
+z0_never_with_bh = z0_tracks - tracks_ever_with_bh
+
+n_z0 = len(z0_tracks)
+n_z0_ever_bh = len(z0_tracks & tracks_ever_with_bh)
+n_z0_never_bh = len(z0_never_with_bh)
+
+print("\n========================================")
+print("z=0 BLACK HOLE HISTORY")
+print("========================================")
+print(f"z=0 galaxies with M_star > 1e9 Msun: {n_z0}")
+print(f"z=0 galaxies with BH > 0 at least once: {n_z0_ever_bh}")
+print(f"z=0 galaxies with BH = 0 in all snapshots: {n_z0_never_bh}")
+
+if n_z0 > 0:
+    print(
+        f"Fraction of z=0 galaxies that never had "
+        f"BH > 0: {100*n_z0_never_bh/n_z0:.2f}%"
+    )
+
+pd.DataFrame({
+    "track_id": sorted(z0_never_with_bh)
+}).to_csv(
+    "z0_galaxies_never_had_bh.csv",
+    index=False
+)
+
+print(
+    "Saved z=0 galaxies that never had BH > 0:",
+    "z0_galaxies_never_had_bh.csv"
+)
 
 rows = [
     {

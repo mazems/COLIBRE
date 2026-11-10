@@ -1,0 +1,23 @@
+{
+  "configuration": {
+    "apply_mass_cut": false,
+    "compactness_comparison": ">=",
+    "compactness_threshold": 9.75,
+    "cosmology": "Planck13",
+    "matching_epoch_definition": "first_compact_and_quenched",
+    "minimum_stellar_mass_msun": 10000000000.0,
+    "quenching_comparison": "<",
+    "quenching_factor": 0.2,
+    "quenching_method": "age_of_universe",
+    "red_nugget_min_redshift": 2.0
+  },
+  "n_highz_red_nugget": 92,
+  "n_match_epochs": 15,
+  "n_never_detected": 1,
+  "n_observed_rows": 4738,
+  "n_onset_uncertain": 5,
+  "n_red_nugget_detected": 266,
+  "n_reference_galaxies": 267,
+  "n_unknown_classification_rows": 0,
+  "note": "z_match is the earliest OBSERVED epoch satisfying the criteria, not a continuous formation time. No control matching or descendant analysis is performed. Missing measurements are not classified as star forming."
+}

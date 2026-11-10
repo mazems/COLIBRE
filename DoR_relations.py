@@ -593,9 +593,9 @@ plt.plot(
     rf" = {COMPACTNESS_CUT}$"
 )
 
-plt.xlabel(r"$\log_{{10}}(M_\star / \mathrm{M}_{\odot}$)")
-plt.ylabel(r"$\log_{{10}}(R_{1/2, \star} / \mathrm{kpc})$")
-plt.legend(fontsize=11)
+plt.xlabel(r"$\log_{{10}}(M_\star / \mathrm{M}_{\odot}$)", fontsize=18)
+plt.ylabel(r"$\log_{{10}}(R_{1/2, \star} / \mathrm{kpc})$", fontsize=18)
+plt.legend(fontsize=13)
 plt.grid(True)
 
 cbar = plt.colorbar(sc)
@@ -791,7 +791,7 @@ else:
     idx_inside = np.nonzero(inside_mask)[0]
 
     # overlay all SOAP-selected lightgrey background for context
-    ax.scatter(logM, logR, s=6, color="lightgrey", alpha=0.5)
+    #ax.scatter(logM, logR, s=6, color="lightgrey", alpha=0.5)
 
     if idx_inside.size > 0:
         xout = pts_grid[idx_inside, 0]
@@ -840,12 +840,12 @@ else:
 # compactness threshold line
 xm = np.linspace(np.nanmin(logM)-0.1, np.nanmax(logM)+0.1, 400)
 yr = (xm - COMPACTNESS_CUT) / 1.5
-ax.plot(xm, yr, "--", color="black", lw=2, label=fr'Compactness threshold ($\lg\Sigma_{{1.5}} = {COMPACTNESS_CUT}$)')
+ax.plot(xm, yr, "--", color="black", lw=2, label="Compactness threshold")
 
-ax.set_xlabel("lg(Stellar Mass / M⊙)")
-ax.set_ylabel("lg(Half Mass Radius / kpc)")
+ax.set_xlabel(r"$\log_{{10}}(M_\star / \mathrm{M}_{\odot}$)", fontsize=18)
+ax.set_ylabel(r"$\log_{{10}}(R_{1/2, \star} / \mathrm{kpc})$", fontsize=18)
 # ax.set_title(f"Mass–size plane coloured by DoR (LOESS) z={ztarget}")
-ax.legend(fontsize=8)
+ax.legend(fontsize=13)
 ax.grid(True)
 
 outpath_loess = os.path.join(outdir, f"mass_size_z{ztarget:.1f}_DoR_loess.png")
